@@ -52,6 +52,11 @@ export function generateIdentity(random: RandomBytes): IdentityKeyPairs {
   return { ikSecret, ikPub: ed25519.getPublicKey(ikSecret), ikDhSecret, ikDhPub: x25519.getPublicKey(ikDhSecret) };
 }
 
+/** Re-derive the public keys from stored secrets (so only secrets are persisted on device). */
+export function derivePublics(ikSecret: Uint8Array, ikDhSecret: Uint8Array): { ikPub: Uint8Array; ikDhPub: Uint8Array } {
+  return { ikPub: ed25519.getPublicKey(ikSecret), ikDhPub: x25519.getPublicKey(ikDhSecret) };
+}
+
 export function generateX25519(random: RandomBytes): { secret: Uint8Array; pub: Uint8Array } {
   const secret = random(32);
   return { secret, pub: x25519.getPublicKey(secret) };

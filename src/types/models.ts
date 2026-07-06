@@ -72,6 +72,7 @@ export interface Message {
   forwardedFrom?: string;
   starred?: boolean;
   pinned?: boolean;
+  serverSeq?: number;
 }
 
 export type StoryKind = 'image' | 'text';
@@ -107,6 +108,10 @@ export interface Conversation {
   encrypted: boolean;
   archived?: boolean;
   verified?: boolean;
+  // Set when this conversation is backed by the relay: the server conversation id and the peer's
+  // handle (used to fetch the peer's prekey bundle when sending).
+  serverId?: ID;
+  peerUsername?: string;
 }
 
 export type ChannelKind = 'text' | 'announcement';

@@ -11,6 +11,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { queryClient } from '@/api/queryClient';
+import { MessagingProvider } from '@/net/MessagingProvider';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { useAppFonts } from '@/theme/typography';
 
@@ -65,7 +66,9 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
-            <RootNavigator />
+            <MessagingProvider>
+              <RootNavigator />
+            </MessagingProvider>
           </ThemeProvider>
         </QueryClientProvider>
       </SafeAreaProvider>

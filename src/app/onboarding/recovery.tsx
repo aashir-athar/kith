@@ -4,7 +4,7 @@
 
 import { router } from 'expo-router';
 import { KeyRound, Lock, type LucideIcon } from 'lucide-react-native';
-import { Pressable, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
 
 import { BackHeader } from '@/components/layout/BackHeader';
 import { Screen } from '@/components/layout/Screen';
@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { OnboardingSteps } from '@/components/ui/OnboardingSteps';
 import { Text } from '@/components/ui/Text';
+import { BACKEND_ENABLED } from '@/net/config';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -74,6 +75,8 @@ export default function RecoveryScreen() {
   const theme = useTheme();
   const complete = useSessionStore((s) => s.completeOnboarding);
   const method = useSessionStore((s) => s.recoveryMethod);
+  const registerWithServer = useSessionStore((s) => s.registerWithServer);
+  const user = useSessionStore((s) => s.currentUser);
 
   return (
     <Screen edges={['top']}>
@@ -124,7 +127,15 @@ export default function RecoveryScreen() {
           variant="primary"
           fullWidth
           disabled={method === 'none'}
-          onPress={() => {
+          onPress={async () => {
+            if (BACKEND_ENABLED) {
+              try {
+                await registerWithServer(user.username, user.displayName);
+              } catch {
+                Alert.alert('Could not create your account', 'The relay is unreachable. Check your connection and try again.');
+                return;
+              }
+            }
             complete();
             router.replace('/');
           }}

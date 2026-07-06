@@ -4,8 +4,12 @@
 
 import { create } from 'zustand';
 
+import { api } from '@/api/client';
 import { newId } from '@/lib/id';
-import { conversations as seedConversations, me, messagesByConversation as seedMessages } from '@/lib/mockData';
+import { conversationPeer, conversations as seedConversations, me, messagesByConversation as seedMessages, usersById } from '@/lib/mockData';
+import { BACKEND_ENABLED } from '@/net/config';
+import { messaging } from '@/net/messaging';
+import { useSessionStore } from '@/stores/useSessionStore';
 import type { Conversation, DeliveryStatus, Message, MessageKind, Reaction } from '@/types/models';
 
 interface SendExtras {
@@ -35,6 +39,8 @@ interface ChatState {
   toggleArchive: (conversationId: string) => void;
   createGroup: (name: string, memberIds: string[]) => string;
   createDirect: (userId: string) => string;
+  receiveServerMessage: (input: { serverConversationId: string; seq: number; senderId: string; text: string; createdAt: number }) => void;
+  applySentAck: (input: { clientId: string; seq: number; id: string }) => void;
 }
 
 function previewFor(kind: MessageKind, text?: string): string {
@@ -75,7 +81,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     step('delivered', 850);
   };
 
-  const append = (conversationId: string, message: Message) => {
+  const push = (conversationId: string, message: Message) => {
     set((state) => ({
       messages: { ...state.messages, [conversationId]: [...(state.messages[conversationId] ?? []), message] },
       conversations: state.conversations.map((c) =>
@@ -84,7 +90,33 @@ export const useChatStore = create<ChatState>((set, get) => {
           : c,
       ),
     }));
+  };
+
+  const append = (conversationId: string, message: Message) => {
+    push(conversationId, message);
     advance(conversationId, message.id);
+  };
+
+  // Real send path (BACKEND_ENABLED): resolve the server conversation, seal, and emit. Delivery
+  // is confirmed by the server 'sent' ack (applySentAck); failure flips the bubble to retry.
+  const sendReal = async (localConvId: string, peerUsername: string, clientId: string, text: string) => {
+    const token = useSessionStore.getState().serverToken;
+    if (!token) {
+      update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
+      return;
+    }
+    try {
+      let serverId = get().conversations.find((c) => c.id === localConvId)?.serverId;
+      if (!serverId) {
+        const direct = await api.createDirect(token, peerUsername);
+        serverId = direct.id;
+        set((state) => ({ conversations: state.conversations.map((c) => (c.id === localConvId ? { ...c, serverId: direct.id } : c)) }));
+      }
+      const ok = await messaging.sendText(serverId, peerUsername, clientId, text);
+      if (!ok) update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
+    } catch {
+      update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
+    }
   };
 
   const update = (conversationId: string, messageId: string, fn: (m: Message) => Message) =>
@@ -111,7 +143,15 @@ export const useChatStore = create<ChatState>((set, get) => {
     sendText: (conversationId, text, extras) => {
       const trimmed = text.trim();
       if (!trimmed) return;
-      append(conversationId, { ...base(conversationId, 'text'), text: trimmed, replyToId: extras?.replyToId });
+      const message: Message = { ...base(conversationId, 'text'), text: trimmed, replyToId: extras?.replyToId };
+      push(conversationId, message);
+      const conv = get().conversations.find((c) => c.id === conversationId);
+      const peerUsername = conv ? (conv.peerUsername ?? conversationPeer(conv)?.username) : undefined;
+      if (BACKEND_ENABLED && conv?.kind === 'direct' && peerUsername) {
+        void sendReal(conversationId, peerUsername, message.id, trimmed);
+      } else {
+        advance(conversationId, message.id);
+      }
     },
     sendVoice: (conversationId, durationSec) => append(conversationId, { ...base(conversationId, 'voice'), durationSec }),
     sendImage: (conversationId, mediaUrl) => append(conversationId, { ...base(conversationId, 'image'), mediaUrl }),
@@ -230,6 +270,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         id,
         kind: 'direct',
         participantIds: [me.id, userId],
+        peerUsername: usersById[userId]?.username,
         unreadCount: 0,
         pinned: false,
         muted: false,
@@ -239,6 +280,35 @@ export const useChatStore = create<ChatState>((set, get) => {
       };
       set((state) => ({ conversations: [conversation, ...state.conversations] }));
       return id;
+    },
+
+    receiveServerMessage: ({ serverConversationId, seq, text, createdAt }) => {
+      const conv = get().conversations.find((c) => c.serverId === serverConversationId);
+      if (!conv) return;
+      const peer = conversationPeer(conv);
+      push(conv.id, {
+        id: newId(),
+        conversationId: conv.id,
+        senderId: peer?.id ?? conv.id,
+        kind: 'text',
+        text,
+        createdAt: new Date(createdAt).toISOString(),
+        status: 'read',
+        serverSeq: seq,
+      });
+      set((state) => ({
+        conversations: state.conversations.map((c) => (c.id === conv.id ? { ...c, unreadCount: c.unreadCount + 1 } : c)),
+      }));
+    },
+
+    applySentAck: ({ clientId, seq }) => {
+      set((state) => {
+        const messages: Record<string, Message[]> = {};
+        for (const [cid, list] of Object.entries(state.messages)) {
+          messages[cid] = list.map((m) => (m.id === clientId ? { ...m, status: 'delivered', serverSeq: seq } : m));
+        }
+        return { messages };
+      });
     },
   };
 });
