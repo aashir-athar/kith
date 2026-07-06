@@ -2,7 +2,7 @@
 // bold and plain, the primary action sits in thumb reach. No hype, no phone number.
 
 import { router } from 'expo-router';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { Screen } from '@/components/layout/Screen';
 import { Button } from '@/components/ui/Button';
@@ -16,7 +16,9 @@ export default function WelcomeScreen() {
     <Screen padded>
       <View style={{ flex: 1, justifyContent: 'space-between', paddingVertical: theme.space['4xl'] }}>
         <View style={{ marginTop: theme.space['6xl'] }}>
-          <Text variant="displayXl">Kith</Text>
+          <Text variant="caption" tone="accent" style={{ textTransform: 'uppercase', letterSpacing: 4 }}>
+            Kith
+          </Text>
         </View>
 
         <View style={{ gap: theme.space.md }}>
@@ -30,7 +32,16 @@ export default function WelcomeScreen() {
         <View style={{ gap: theme.space.md }}>
           <OnboardingSteps current={0} />
           <Button label="Create my account" variant="primary" fullWidth onPress={() => router.push('/onboarding/username')} />
-          <Button label="I already have an account" variant="secondary" fullWidth onPress={() => router.replace('/')} />
+          <Button label="I already have an account" variant="secondary" fullWidth onPress={() => router.push('/onboarding/restore')} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="How Kith protects you"
+            onPress={() => router.push('/security-explainer')}
+            style={{ alignSelf: 'center', paddingVertical: theme.space.xs }}>
+            <Text variant="footnote" tone="secondary">
+              How Kith protects you
+            </Text>
+          </Pressable>
         </View>
       </View>
     </Screen>

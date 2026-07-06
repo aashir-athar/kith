@@ -3,7 +3,7 @@
 // the account is genuinely secured before onboarding completes.
 
 import { router } from 'expo-router';
-import { Check, KeyRound, Lock, type LucideIcon } from 'lucide-react-native';
+import { KeyRound, Lock, type LucideIcon } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
 import { BackHeader } from '@/components/layout/BackHeader';
@@ -43,8 +43,20 @@ function Option({
         borderRadius: theme.radius.md,
         borderWidth: 1,
         borderColor: selected ? theme.colors.accent : theme.colors.hairline,
-        backgroundColor: theme.colors.surface,
+        backgroundColor: selected ? theme.colors.elevated : theme.colors.surface,
       }}>
+      <View
+        style={{
+          width: 20,
+          height: 20,
+          borderRadius: 10,
+          borderWidth: 2,
+          borderColor: selected ? theme.colors.accent : theme.colors.inkTertiary,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+        {selected ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: theme.colors.accent }} /> : null}
+      </View>
       <Icon icon={icon} tone={selected ? 'accent' : 'secondary'} />
       <View style={{ flex: 1 }}>
         <Text variant="bodyStrong">{title}</Text>
@@ -52,7 +64,6 @@ function Option({
           {hint}
         </Text>
       </View>
-      {selected ? <Icon icon={Check} tone="accent" /> : null}
     </Pressable>
   );
 }
@@ -70,12 +81,19 @@ export default function RecoveryScreen() {
         <View style={{ gap: theme.space.sm }}>
           <Text variant="displayLg">Secure your account</Text>
           <Text variant="body" tone="secondary">
-            Lose your phone, keep your messages. Set one now: a PIN is hardware backed and guess limited, or hold a
-            recovery phrase yourself.
+            Lose your phone, keep your messages. Set one now.
           </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Learn how recovery works"
+            onPress={() => router.push('/security-explainer')}>
+            <Text variant="footnote" tone="accent">
+              Learn how recovery works
+            </Text>
+          </Pressable>
         </View>
 
-        <View style={{ gap: theme.space.sm }}>
+        <View accessibilityRole="radiogroup" accessibilityLabel="Recovery method" style={{ gap: theme.space.sm }}>
           <Option
             selected={method === 'pin'}
             icon={Lock}
