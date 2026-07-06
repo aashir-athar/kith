@@ -1,14 +1,19 @@
-// Lever: control + transparency. The one fully-wired screen in the shell: a real appearance
-// switch (system/light/dark, persisted) and an honest about card. No dead rows.
+// Lever: control + transparency. Profile up top, a real appearance switch, and honest entry
+// points into the deeper settings. No dead rows.
 
 import Constants from 'expo-constants';
-import { ScrollView, View } from 'react-native';
+import { router } from 'expo-router';
+import { Bell, ShieldCheck, UserPlus } from 'lucide-react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Header } from '@/components/layout/Header';
 import { Screen } from '@/components/layout/Screen';
+import { Avatar } from '@/components/ui/Avatar';
 import { SegmentedControl, type SegmentOption } from '@/components/ui/SegmentedControl';
+import { SettingsRow } from '@/components/ui/SettingsRow';
 import { Surface } from '@/components/ui/Surface';
 import { Text } from '@/components/ui/Text';
+import { useSessionStore } from '@/stores/useSessionStore';
 import { useTheme, type ThemeMode } from '@/theme/ThemeProvider';
 
 const MODES: readonly SegmentOption<ThemeMode>[] = [
@@ -19,6 +24,12 @@ const MODES: readonly SegmentOption<ThemeMode>[] = [
 
 export default function YouScreen() {
   const theme = useTheme();
+  const user = useSessionStore((s) => s.currentUser);
+
+  const divider = (
+    <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.colors.hairline, marginLeft: theme.space.xl }} />
+  );
+
   return (
     <Screen>
       <Header title="You" />
@@ -28,12 +39,32 @@ export default function YouScreen() {
           paddingBottom: theme.space['6xl'],
           gap: theme.space.xl,
         }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.lg }}>
+          <Avatar name={user.displayName} seed={user.id} url={user.avatarUrl} size={64} />
+          <View style={{ flex: 1 }}>
+            <Text variant="title" numberOfLines={1}>
+              {user.displayName}
+            </Text>
+            <Text variant="callout" tone="secondary">
+              @{user.username}
+            </Text>
+          </View>
+        </View>
+
         <View style={{ gap: theme.space.sm }}>
           <Text variant="caption" tone="secondary" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>
             Appearance
           </Text>
           <SegmentedControl options={MODES} value={theme.mode} onChange={theme.setMode} />
         </View>
+
+        <Surface variant="flat" style={{ overflow: 'hidden' }}>
+          <SettingsRow icon={ShieldCheck} label="Privacy & security" onPress={() => router.push('/settings/privacy')} />
+          {divider}
+          <SettingsRow icon={Bell} label="Notifications" onPress={() => router.push('/settings/notifications')} />
+          {divider}
+          <SettingsRow icon={UserPlus} label="Account" onPress={() => router.push('/settings/account')} />
+        </Surface>
 
         <View style={{ gap: theme.space.sm }}>
           <Text variant="caption" tone="secondary" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>

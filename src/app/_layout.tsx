@@ -31,9 +31,17 @@ function RootNavigator() {
   return (
     <>
       <StatusBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />
-      <Stack
-        screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.base } }}
-      />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.base } }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="onboarding" />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="conversation/[id]" />
+        <Stack.Screen name="community/[id]" />
+        <Stack.Screen name="new" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="search" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="call/[id]" options={{ presentation: 'fullScreenModal' }} />
+        <Stack.Screen name="media/[id]" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
+      </Stack>
     </>
   );
 }
