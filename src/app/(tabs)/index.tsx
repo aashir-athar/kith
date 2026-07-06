@@ -5,9 +5,11 @@
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { Archive, PenSquare, QrCode } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
+import { useSharedValue } from 'react-native-reanimated';
 
+import { ChatListSkeleton } from '@/components/feedback/ChatListSkeleton';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { OfflineBanner } from '@/components/feedback/OfflineBanner';
 import { Header } from '@/components/layout/Header';
@@ -39,6 +41,14 @@ export default function ChatsScreen() {
   const conversations = useChatStore((s) => s.conversations);
   const [query, setQuery] = useState('');
   const [folder, setFolder] = useState<ChatFolder>('all');
+  const [loading, setLoading] = useState(true);
+  const scrollY = useSharedValue(0);
+
+  // Simulates the encrypted local store hydrating before first paint. Real skeleton, real state.
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 600);
+    return () => clearTimeout(t);
+  }, []);
 
   const q = query.trim().toLowerCase();
   const active = conversations.filter((c) => !c.archived);
@@ -74,7 +84,7 @@ export default function ChatsScreen() {
     <Screen>
       <Header
         title="Chats"
-        subtitle="Private by default"
+        scrollY={scrollY}
         right={
           <IconButton accessibilityLabel="Scan a code" onPress={() => router.push('/scan')}>
             <Icon icon={QrCode} tone="secondary" />
@@ -96,7 +106,9 @@ export default function ChatsScreen() {
         <SettingsRow icon={Archive} label="Archived" value={String(archivedCount)} onPress={() => router.push('/archived')} />
       ) : null}
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <ChatListSkeleton />
+      ) : filtered.length === 0 ? (
         <EmptyState
           title="No conversations yet"
           body="Your conversations show up here. Start one, and only the two of you can read it."
@@ -118,6 +130,10 @@ export default function ChatsScreen() {
                 />
               );
             }}
+            onScroll={(e) => {
+              scrollY.value = e.nativeEvent.contentOffset.y;
+            }}
+            scrollEventThrottle={16}
             contentContainerStyle={{ paddingBottom: theme.space['8xl'] }}
           />
         </View>

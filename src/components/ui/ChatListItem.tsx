@@ -1,5 +1,5 @@
-// Conversation row for the Chats list. Unread state raises the accent (count badge + time)
-// and darkens the preview to ink; read rows stay quiet. Pin/mute/verified are small meta.
+// Conversation row for the Chats list. The count badge owns "unread"; the preview stays
+// neutral and pin/mute/verified read as clear meta rather than fighting the badge.
 
 import { BadgeCheck, BellOff, Pin } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
@@ -44,10 +44,10 @@ export function ChatListItem({ conversation, onPress }: ChatListItemProps) {
             {title}
           </Text>
           {conversation.kind === 'direct' && peer?.verified ? <Icon icon={BadgeCheck} size={15} tone="accent" /> : null}
-          {conversation.pinned ? <Icon icon={Pin} size={13} tone="tertiary" /> : null}
-          {conversation.muted ? <Icon icon={BellOff} size={13} tone="tertiary" /> : null}
+          {conversation.pinned ? <Icon icon={Pin} size={14} tone="secondary" /> : null}
+          {conversation.muted ? <Icon icon={BellOff} size={14} tone="secondary" /> : null}
         </View>
-        <Text variant="footnote" tone={unread ? 'ink' : 'secondary'} numberOfLines={1}>
+        <Text variant="footnote" tone="secondary" numberOfLines={1}>
           {conversation.lastMessagePreview ?? 'No messages yet'}
         </Text>
       </View>
