@@ -8,7 +8,9 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 
 import { env } from './env';
+import { startHeartbeat, wsRoute, wss } from './gateway';
 import { auth } from './routes/auth';
+import { conversationsRoute } from './routes/conversations';
 import { keys } from './routes/keys';
 import { rt } from './routes/rt';
 
@@ -19,14 +21,19 @@ app.get('/health', (c) => c.json({ ok: true, service: 'kith-server', ts: Date.no
 app.route('/auth', auth);
 app.route('/keys', keys);
 app.route('/rt', rt);
+app.route('/conversations', conversationsRoute);
+app.get('/ws', wsRoute);
 
-const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
+const server = serve({ fetch: app.fetch, port: env.PORT, websocket: { server: wss } }, (info) => {
   console.log(`[kith-server] listening on http://localhost:${info.port} (${env.NODE_ENV})`);
 });
+
+const heartbeat = startHeartbeat();
 
 for (const sig of ['SIGINT', 'SIGTERM'] as const) {
   process.on(sig, () => {
     console.log(`[kith-server] ${sig} received, shutting down`);
+    clearInterval(heartbeat);
     server.close(() => process.exit(0));
   });
 }
