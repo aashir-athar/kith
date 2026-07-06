@@ -25,7 +25,7 @@
   "exclude": [
     "node_modules",
     "server",
-    "shared/node_modules",
+    "shared",
     "dist"
   ]
 }

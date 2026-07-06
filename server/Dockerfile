@@ -4,9 +4,11 @@
 FROM node:24-alpine
 
 WORKDIR /app
+# shared is a self-contained package (its own @noble + zod); install its deps first.
 COPY shared ./shared
-COPY server/package.json ./server/package.json
+RUN cd shared && npm install
 
+COPY server/package.json ./server/package.json
 WORKDIR /app/server
 RUN npm install
 

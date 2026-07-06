@@ -15,9 +15,6 @@
   "dependencies": {
     "@hono/node-server": "2.0.8",
     "@kith/shared": "file:../shared",
-    "@noble/ciphers": "^2.0.0",
-    "@noble/curves": "2.2.0",
-    "@noble/hashes": "^2.0.0",
     "dotenv": "^17.0.0",
     "drizzle-orm": "0.45.2",
     "hono": "4.12.28",
