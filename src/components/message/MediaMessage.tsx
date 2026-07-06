@@ -1,9 +1,9 @@
-// Image message content. Taps open the full-screen viewer.
+// Image message content. Local generated media (no third-party fetch). Taps open the viewer.
 
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Pressable } from 'react-native';
 
+import { LocalMedia } from '@/components/ui/LocalMedia';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { Message } from '@/types/models';
 
@@ -15,12 +15,7 @@ export function MediaMessage({ message }: { message: Message }) {
       accessibilityRole="imagebutton"
       accessibilityLabel="Photo"
       onPress={() => router.push({ pathname: '/media/[id]', params: { id: seed } })}>
-      <Image
-        source={{ uri: `https://picsum.photos/seed/${seed}/600/600` }}
-        style={{ width: 224, height: 224, borderRadius: theme.radius.md }}
-        contentFit="cover"
-        transition={120}
-      />
+      <LocalMedia seed={seed} radius={theme.radius.md} style={{ width: 224, height: 224 }} />
     </Pressable>
   );
 }

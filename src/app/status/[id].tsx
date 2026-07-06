@@ -1,7 +1,6 @@
 // Status viewer: full-screen, auto-advancing tap-through with progress bars. Tap right for
 // next, left for previous. Text stories render on their background; photo stories fill.
 
-import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
@@ -10,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
+import { LocalMedia } from '@/components/ui/LocalMedia';
 import { Text } from '@/components/ui/Text';
 import { relativeTime } from '@/lib/format';
 import { me, usersById } from '@/lib/mockData';
@@ -68,12 +68,7 @@ export default function StatusViewer() {
   return (
     <View style={{ flex: 1, backgroundColor: story.kind === 'text' ? (story.background ?? theme.colors.surface) : '#0A0A0B' }}>
       {story.kind === 'image' ? (
-        <Image
-          source={{ uri: `https://picsum.photos/seed/${story.mediaUrl ?? story.id}/800/1400` }}
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-          contentFit="cover"
-          transition={120}
-        />
+        <LocalMedia seed={story.mediaUrl ?? story.id} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
       ) : null}
 
       <View style={{ paddingTop: insets.top + theme.space.sm, paddingHorizontal: theme.space.lg, gap: theme.space.sm }}>

@@ -4,7 +4,7 @@
 import { router } from 'expo-router';
 import { Camera } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { Alert, Pressable, TextInput, View } from 'react-native';
 
 import { BackHeader } from '@/components/layout/BackHeader';
 import { Screen } from '@/components/layout/Screen';
@@ -12,7 +12,6 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { Text } from '@/components/ui/Text';
-import { newId } from '@/lib/id';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fontFamily } from '@/theme/typography';
@@ -74,7 +73,9 @@ export default function EditProfileScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Change profile photo"
-            onPress={() => setAvatarLocal(`https://picsum.photos/seed/${newId()}/320/320`)}>
+            onPress={() =>
+              Alert.alert('Change photo', 'The photo picker would open here. Your photo stays on device, never uploaded to us.')
+            }>
             <Avatar name={displayName || 'You'} seed={user.id} url={avatarUrl} size={96} />
             <View
               style={{

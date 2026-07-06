@@ -1,15 +1,13 @@
-// Full-screen media viewer. Skeleton holds the frame until the image resolves. Presented as
-// a full-screen modal.
+// Full-screen media viewer. Renders local decrypted media only (no third-party fetch), with
+// close and share/save controls over a legible scrim.
 
-import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { X } from 'lucide-react-native';
-import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Download, Share2, X } from 'lucide-react-native';
+import { Alert, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/ui/Icon';
-import { Skeleton } from '@/components/ui/Skeleton';
+import { LocalMedia } from '@/components/ui/LocalMedia';
 import { useTheme } from '@/theme/ThemeProvider';
 
 export default function MediaViewer() {
@@ -17,37 +15,47 @@ export default function MediaViewer() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const mediaId = typeof id === 'string' ? id : 'kith';
-  const [loaded, setLoaded] = useState(false);
+
+  const control = (label: string, icon: typeof X, onPress: () => void) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: theme.radius.pill,
+        backgroundColor: theme.colors.scrim,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+      <Icon icon={icon} tone="ink" />
+    </Pressable>
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.base }}>
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        {!loaded ? <Skeleton style={StyleSheet.absoluteFill} radius={0} /> : null}
-        <Image
-          source={{ uri: `https://picsum.photos/seed/${mediaId}/1200/1600` }}
-          style={{ width: '100%', height: '100%' }}
-          contentFit="contain"
-          transition={150}
-          onLoad={() => setLoaded(true)}
-        />
+        <LocalMedia seed={mediaId} style={{ width: '100%', aspectRatio: 3 / 4 }} />
       </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Close"
-        onPress={() => router.back()}
+
+      <View style={{ position: 'absolute', top: insets.top + theme.space.sm, left: theme.space.lg }}>
+        {control('Close', X, () => router.back())}
+      </View>
+
+      <View
         style={{
           position: 'absolute',
-          top: insets.top + theme.space.sm,
-          left: theme.space.lg,
-          width: 40,
-          height: 40,
-          borderRadius: theme.radius.pill,
-          backgroundColor: theme.colors.scrim,
-          alignItems: 'center',
-          justifyContent: 'center',
+          bottom: insets.bottom + theme.space.lg,
+          right: theme.space.lg,
+          flexDirection: 'row',
+          gap: theme.space.md,
         }}>
-        <Icon icon={X} tone="ink" />
-      </Pressable>
+        {control('Share', Share2, () =>
+          Alert.alert('Share', 'Encrypted media stays on device; sharing re-encrypts it for the recipient.'),
+        )}
+        {control('Save', Download, () => Alert.alert('Save', 'Saved to your device.'))}
+      </View>
     </View>
   );
 }

@@ -1,7 +1,6 @@
 // Chat info: identity, quick actions, encryption state, shared media, members (groups),
 // per-chat settings, and safety controls. Reached from the conversation header.
 
-import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Archive, Bell, ChevronRight, MessageCircle, Phone, Search, ShieldCheck, Video, type LucideIcon } from 'lucide-react-native';
 import { useState } from 'react';
@@ -12,6 +11,7 @@ import { Screen } from '@/components/layout/Screen';
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { ListSectionLabel } from '@/components/ui/ListSectionLabel';
+import { LocalMedia } from '@/components/ui/LocalMedia';
 import { SettingsRow } from '@/components/ui/SettingsRow';
 import { Surface } from '@/components/ui/Surface';
 import { Text } from '@/components/ui/Text';
@@ -137,11 +137,7 @@ export default function ChatInfoScreen() {
                     accessibilityRole="imagebutton"
                     accessibilityLabel="Shared photo"
                     onPress={() => router.push({ pathname: '/media/[id]', params: { id: seed } })}>
-                    <Image
-                      source={{ uri: `https://picsum.photos/seed/${seed}/200/200` }}
-                      style={{ width: 88, height: 88, borderRadius: theme.radius.sm }}
-                      contentFit="cover"
-                    />
+                    <LocalMedia seed={seed} radius={theme.radius.sm} style={{ width: 88, height: 88 }} />
                   </Pressable>
                 );
               })}

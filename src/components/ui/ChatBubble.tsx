@@ -2,7 +2,6 @@
 // keeps both sides on neutral surfaces (coral is never a bubble fill), and shows forwarded,
 // edited, starred, time, delivery, and reactions.
 
-import { Image } from 'expo-image';
 import { Forward, Flame, Heart, Laugh, type LucideIcon, Star, ThumbsUp } from 'lucide-react-native';
 import { type ReactNode } from 'react';
 import { View } from 'react-native';
@@ -13,6 +12,7 @@ import { MediaMessage } from '@/components/message/MediaMessage';
 import { PollMessage } from '@/components/message/PollMessage';
 import { VoiceMessage } from '@/components/message/VoiceMessage';
 import { Icon } from '@/components/ui/Icon';
+import { LocalMedia } from '@/components/ui/LocalMedia';
 import { MessageStatus } from '@/components/ui/MessageStatus';
 import { Text } from '@/components/ui/Text';
 import { clockTime } from '@/lib/format';
@@ -54,13 +54,7 @@ export function ChatBubble({ message, mine, replyPreview }: ChatBubbleProps) {
       content = <PollMessage message={message} />;
       break;
     case 'sticker':
-      content = (
-        <Image
-          source={{ uri: `https://picsum.photos/seed/${message.stickerId ?? message.id}/240/240` }}
-          style={{ width: 120, height: 120, borderRadius: theme.radius.md }}
-          contentFit="cover"
-        />
-      );
+      content = <LocalMedia seed={message.stickerId ?? message.id} radius={theme.radius.md} style={{ width: 120, height: 120 }} />;
       break;
     case 'contact':
       content = (

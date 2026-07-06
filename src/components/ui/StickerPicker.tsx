@@ -1,10 +1,10 @@
 // Sticker and GIF picker. Emoji input comes from the system keyboard (so our own UI stays
 // emoji-free); this panel covers the image-based stickers and GIFs.
 
-import { Image } from 'expo-image';
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
+import { LocalMedia } from '@/components/ui/LocalMedia';
 import { Sheet } from '@/components/ui/Sheet';
 import { Text } from '@/components/ui/Text';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -51,11 +51,7 @@ export function StickerPicker({ visible, onClose, onSelect }: StickerPickerProps
               onClose();
             }}
             style={{ width: '30%', aspectRatio: 1 }}>
-            <Image
-              source={{ uri: `https://picsum.photos/seed/${id}/200/200` }}
-              style={{ width: '100%', height: '100%', borderRadius: theme.radius.md }}
-              contentFit="cover"
-            />
+            <LocalMedia seed={id} radius={theme.radius.md} style={{ width: '100%', height: '100%' }} />
           </Pressable>
         ))}
       </ScrollView>
