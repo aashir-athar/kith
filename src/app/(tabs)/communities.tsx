@@ -3,7 +3,7 @@
 
 import { router } from 'expo-router';
 import { Hash, Plus, Users } from 'lucide-react-native';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { Header } from '@/components/layout/Header';
@@ -25,17 +25,39 @@ function CommunityCard({ community }: { community: Community }) {
   const channelCount = community.channels.length;
   const memberLabel = `${formatCount(community.memberCount)} ${community.memberCount === 1 ? 'member' : 'members'}`;
   const channelLabel = `${channelCount} ${channelCount === 1 ? 'channel' : 'channels'}`;
+  const unread = community.channels.reduce((n, c) => n + c.unreadCount, 0);
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open ${community.name} community`}
+      accessibilityLabel={`Open ${community.name} community${unread > 0 ? `, ${unread} unread` : ''}`}
       onPress={() => router.push('/community/' + community.id)}
       style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}>
-      <Surface variant="flat" elevation="e1" style={{ padding: theme.space.xl, gap: theme.space.sm }}>
-        <Text variant="title" numberOfLines={1}>
-          {community.name}
-        </Text>
+      <Surface
+        variant="flat"
+        elevation="e1"
+        style={{ padding: theme.space.xl, gap: theme.space.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.hairline }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.sm }}>
+          <Text variant="title" numberOfLines={1} style={{ flex: 1 }}>
+            {community.name}
+          </Text>
+          {unread > 0 ? (
+            <View
+              style={{
+                minWidth: 22,
+                height: 22,
+                borderRadius: theme.radius.pill,
+                backgroundColor: theme.colors.accent,
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingHorizontal: theme.space.xs,
+              }}>
+              <Text variant="caption" tone="onAccent">
+                {unread}
+              </Text>
+            </View>
+          ) : null}
+        </View>
         <Text variant="callout" tone="secondary" numberOfLines={2}>
           {community.description}
         </Text>
@@ -83,6 +105,15 @@ export default function CommunitiesScreen() {
   return (
     <Screen>
       <Header title="Communities" subtitle="Rooms for your people" />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="How rooms stay encrypted and moderated"
+        onPress={() => router.push('/security-explainer')}
+        style={{ paddingHorizontal: theme.space.xl, paddingBottom: theme.space.sm }}>
+        <Text variant="footnote" tone="secondary">
+          How rooms stay encrypted and moderated
+        </Text>
+      </Pressable>
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: theme.space.xl,

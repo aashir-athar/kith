@@ -52,7 +52,8 @@ function authorName(message: Message): string {
 
 export default function ConversationScreen() {
   const theme = useTheme();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, channel, members } = useLocalSearchParams<{ id: string; channel?: string; members?: string }>();
+  const isChannel = channel === '1';
   const cid = typeof id === 'string' ? id : '';
 
   const conversation = useChatStore((s) => s.conversations.find((c) => c.id === cid));
@@ -202,8 +203,12 @@ export default function ConversationScreen() {
             <Text variant="bodyStrong" numberOfLines={1}>
               {title}
             </Text>
-            <Text variant="caption" tone={conversation?.verified ? 'secondary' : 'accent'}>
-              {conversation?.verified ? 'end-to-end encrypted' : 'tap to verify encryption'}
+            <Text variant="caption" tone={isChannel || conversation?.verified ? 'secondary' : 'accent'}>
+              {isChannel
+                ? `${members ? members + ' members · ' : ''}encrypted for the room`
+                : conversation?.verified
+                  ? 'end-to-end encrypted'
+                  : 'tap to verify encryption'}
             </Text>
           </View>
         </Pressable>
