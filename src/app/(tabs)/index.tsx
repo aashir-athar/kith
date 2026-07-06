@@ -17,6 +17,7 @@ import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/IconButton';
 import { ListSectionLabel } from '@/components/ui/ListSectionLabel';
 import { SearchField } from '@/components/ui/SearchField';
+import { FolderChips, type ChatFolder } from '@/components/ui/FolderChips';
 import { StoryStrip } from '@/components/ui/StoryStrip';
 import { conversationTitle } from '@/lib/mockData';
 import { useChatStore } from '@/stores/useChatStore';
@@ -35,10 +36,17 @@ export default function ChatsScreen() {
   const theme = useTheme();
   const conversations = useChatStore((s) => s.conversations);
   const [query, setQuery] = useState('');
+  const [folder, setFolder] = useState<ChatFolder>('all');
 
   const q = query.trim().toLowerCase();
-  const filtered = conversations.filter((c) => conversationTitle(c).toLowerCase().includes(q));
-  const sectioned = q.length === 0 && filtered.some((c) => c.pinned);
+  const byFolder = conversations.filter((c) => {
+    if (folder === 'unread') return c.unreadCount > 0;
+    if (folder === 'groups') return c.kind === 'group';
+    if (folder === 'pinned') return c.pinned;
+    return true;
+  });
+  const filtered = byFolder.filter((c) => conversationTitle(c).toLowerCase().includes(q));
+  const sectioned = q.length === 0 && folder === 'all' && filtered.some((c) => c.pinned);
 
   const rows: Row[] = [];
   if (sectioned) {
@@ -75,6 +83,8 @@ export default function ChatsScreen() {
       </View>
 
       <StoryStrip />
+
+      <FolderChips value={folder} onChange={setFolder} />
 
       {filtered.length === 0 ? (
         <EmptyState

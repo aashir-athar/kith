@@ -3,7 +3,7 @@
 
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Bell, MessageCircle, Phone, Search, ShieldCheck, Video, type LucideIcon } from 'lucide-react-native';
+import { Bell, ChevronRight, MessageCircle, Phone, Search, ShieldCheck, Video, type LucideIcon } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
@@ -103,15 +103,21 @@ export default function ChatInfoScreen() {
         </View>
 
         <View style={{ paddingHorizontal: theme.space.xl }}>
-          <Surface variant="flat" style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.md, padding: theme.space.lg }}>
-            <Icon icon={ShieldCheck} tone="success" />
-            <View style={{ flex: 1 }}>
-              <Text variant="bodyStrong">End-to-end encrypted</Text>
-              <Text variant="footnote" tone="secondary">
-                Messages and calls are secured with keys only on your devices.
-              </Text>
-            </View>
-          </Surface>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Verify safety number"
+            onPress={() => router.push({ pathname: '/verify/[id]', params: { id: cid } })}>
+            <Surface variant="flat" style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.md, padding: theme.space.lg }}>
+              <Icon icon={ShieldCheck} tone="success" />
+              <View style={{ flex: 1 }}>
+                <Text variant="bodyStrong">End-to-end encrypted</Text>
+                <Text variant="footnote" tone="secondary">
+                  Tap to verify the safety number with {peer?.displayName ?? title}.
+                </Text>
+              </View>
+              <Icon icon={ChevronRight} size={18} tone="tertiary" />
+            </Surface>
+          </Pressable>
         </View>
 
         {media.length > 0 ? (

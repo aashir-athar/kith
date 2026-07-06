@@ -4,7 +4,7 @@
 
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
-import { QrCode, Users, X } from 'lucide-react-native';
+import { QrCode, UserPlus, Users, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -70,6 +70,7 @@ export default function NewChatScreen() {
           ListHeaderComponent={
             <View>
               <SettingsRow icon={QrCode} label="Scan a code" />
+              <SettingsRow icon={UserPlus} label="New group" onPress={() => router.push('/new-group')} />
               <SettingsRow
                 icon={Users}
                 label="New community"

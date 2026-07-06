@@ -31,6 +31,7 @@ interface ChatState {
   forwardMessage: (fromId: string, messageId: string, toId: string) => void;
   markRead: (conversationId: string) => void;
   togglePin: (conversationId: string) => void;
+  createGroup: (name: string, memberIds: string[]) => string;
 }
 
 function previewFor(kind: MessageKind, text?: string): string {
@@ -193,5 +194,22 @@ export const useChatStore = create<ChatState>((set) => {
       set((state) => ({
         conversations: state.conversations.map((c) => (c.id === conversationId ? { ...c, pinned: !c.pinned } : c)),
       })),
+    createGroup: (name, memberIds) => {
+      const id = newId();
+      const conversation: Conversation = {
+        id,
+        kind: 'group',
+        title: name,
+        participantIds: [me.id, ...memberIds],
+        unreadCount: 0,
+        pinned: false,
+        muted: false,
+        encrypted: true,
+        lastMessageAt: new Date().toISOString(),
+        lastMessagePreview: 'New group',
+      };
+      set((state) => ({ conversations: [conversation, ...state.conversations] }));
+      return id;
+    },
   };
 });

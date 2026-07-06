@@ -12,6 +12,7 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, View } from 'react-na
 import { Screen } from '@/components/layout/Screen';
 import { AttachmentSheet, type AttachmentKind } from '@/components/ui/AttachmentSheet';
 import { Avatar } from '@/components/ui/Avatar';
+import { CatchUpCard } from '@/components/ui/CatchUpCard';
 import { ChatBubble } from '@/components/ui/ChatBubble';
 import { Composer } from '@/components/ui/Composer';
 import { ForwardSheet } from '@/components/ui/ForwardSheet';
@@ -72,9 +73,17 @@ export default function ConversationScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [attachVisible, setAttachVisible] = useState(false);
   const [forwardId, setForwardId] = useState<string | null>(null);
+  const [catchUpDismissed, setCatchUpDismissed] = useState(false);
 
   const title = conversation ? conversationTitle(conversation) : 'Conversation';
   const callTargetId = conversation ? (conversationPeer(conversation)?.id ?? cid) : cid;
+
+  const incoming = messages.filter((m) => m.senderId !== me.id);
+  const lastIncoming = incoming[incoming.length - 1];
+  const showCatchUp = !catchUpDismissed && incoming.length >= 3;
+  const catchUpSummary = lastIncoming?.text
+    ? `${incoming.length} messages while you were away. Most recent: "${lastIncoming.text}"`
+    : `${incoming.length} messages while you were away, including media and updates.`;
 
   useEffect(() => {
     if (cid) markRead(cid);
@@ -211,6 +220,9 @@ export default function ConversationScreen() {
                 );
               }}
               contentContainerStyle={{ paddingHorizontal: theme.space.lg, paddingVertical: theme.space.md }}
+              ListHeaderComponent={
+                showCatchUp ? <CatchUpCard summary={catchUpSummary} onDismiss={() => setCatchUpDismissed(true)} /> : null
+              }
               maintainVisibleContentPosition={{ startRenderingFromBottom: true }}
             />
           )}
