@@ -51,7 +51,9 @@ export default function AccountScreen() {
         </Surface>
 
         <ListSectionLabel label="Danger zone" />
-        <Surface variant="flat" style={{ marginHorizontal: theme.space.xl, overflow: 'hidden' }}>
+        <Surface
+          variant="flat"
+          style={{ marginHorizontal: theme.space.xl, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.danger }}>
           <SettingsRow icon={Trash2} label="Delete account" danger onPress={confirmDelete} />
         </Surface>
       </ScrollView>

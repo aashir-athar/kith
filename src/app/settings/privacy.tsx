@@ -37,6 +37,12 @@ export default function PrivacyScreen() {
     <Screen edges={['top']}>
       <BackHeader title="Privacy & security" />
       <ScrollView contentContainerStyle={{ paddingBottom: theme.space['6xl'] }}>
+        <View style={{ paddingHorizontal: theme.space.xl, paddingTop: theme.space.sm, paddingBottom: theme.space.md }}>
+          <Text variant="callout" tone="secondary">
+            Kith is end to end encrypted by default. The server relays ciphertext it cannot read.
+          </Text>
+        </View>
+
         <ListSectionLabel label="Visibility" />
         <Surface variant="flat" style={{ marginHorizontal: theme.space.xl, overflow: 'hidden' }}>
           {toggle('Read receipts', readReceipts, setReadReceipts)}
@@ -52,12 +58,6 @@ export default function PrivacyScreen() {
           {divider}
           <SettingsRow label="Disappearing messages" value={disappearing} onPress={cycleDisappearing} />
         </Surface>
-
-        <View style={{ paddingHorizontal: theme.space.xl, paddingTop: theme.space.lg }}>
-          <Text variant="footnote" tone="secondary">
-            Kith is end to end encrypted by default. The server relays ciphertext it cannot read.
-          </Text>
-        </View>
       </ScrollView>
     </Screen>
   );

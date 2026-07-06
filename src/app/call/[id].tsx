@@ -78,12 +78,16 @@ export default function CallScreen() {
             <Text variant="headline" style={{ color: '#FFFFFF' }}>
               {peerName}
             </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xxs }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Verify safety number"
+              onPress={() => router.push({ pathname: '/verify/[id]', params: { id: peerId } })}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xxs }}>
               <Icon icon={ShieldCheck} size={14} tone="success" />
               <Text variant="caption" style={{ color: 'rgba(255,255,255,0.8)' }}>
                 Encrypted · {statusLine}
               </Text>
-            </View>
+            </Pressable>
           </View>
         </View>
       ) : (
@@ -93,12 +97,16 @@ export default function CallScreen() {
             <Text variant="displayLg" center>
               {peerName}
             </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Verify safety number"
+              onPress={() => router.push({ pathname: '/verify/[id]', params: { id: peerId } })}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs }}>
               <Icon icon={ShieldCheck} tone="success" size={16} />
-              <Text variant="footnote" tone="secondary">
-                End-to-end encrypted
+              <Text variant="footnote" tone="accent">
+                End-to-end encrypted · verify
               </Text>
-            </View>
+            </Pressable>
             <Text variant="mono" tone="secondary">
               {statusLine}
             </Text>
