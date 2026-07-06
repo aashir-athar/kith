@@ -43,7 +43,9 @@ function Option({
         borderRadius: theme.radius.md,
         borderWidth: 1,
         borderColor: selected ? theme.colors.accent : theme.colors.hairline,
-        backgroundColor: selected ? theme.colors.elevated : theme.colors.surface,
+        // Low-alpha coral selection tint (a selection state, not a decorative wash), paired with
+        // the leading radio dot so state survives a glance and colour-blindness.
+        backgroundColor: selected ? 'rgba(255,90,44,0.10)' : theme.colors.surface,
       }}>
       <View
         style={{

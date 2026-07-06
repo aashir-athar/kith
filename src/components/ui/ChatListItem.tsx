@@ -44,8 +44,8 @@ export function ChatListItem({ conversation, onPress }: ChatListItemProps) {
             {title}
           </Text>
           {conversation.kind === 'direct' && peer?.verified ? <Icon icon={BadgeCheck} size={15} tone="accent" /> : null}
-          {conversation.pinned ? <Icon icon={Pin} size={14} tone="secondary" /> : null}
-          {conversation.muted ? <Icon icon={BellOff} size={14} tone="secondary" /> : null}
+          {conversation.pinned ? <Icon icon={Pin} size={16} tone="secondary" /> : null}
+          {conversation.muted ? <Icon icon={BellOff} size={16} tone="secondary" /> : null}
         </View>
         <Text variant="footnote" tone="secondary" numberOfLines={1}>
           {conversation.lastMessagePreview ?? 'No messages yet'}
@@ -53,7 +53,7 @@ export function ChatListItem({ conversation, onPress }: ChatListItemProps) {
       </View>
 
       <View style={{ alignItems: 'flex-end', gap: theme.space.xs }}>
-        <Text variant="caption" tone={unread ? 'secondary' : 'tertiary'}>
+        <Text variant="caption" tone="secondary">
           {conversation.lastMessageAt ? relativeTime(conversation.lastMessageAt) : ''}
         </Text>
         {unread ? (

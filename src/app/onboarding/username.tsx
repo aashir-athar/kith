@@ -5,7 +5,7 @@
 import { router } from 'expo-router';
 import { Check } from 'lucide-react-native';
 import { useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Alert, StyleSheet, TextInput, View } from 'react-native';
 
 import { BackHeader } from '@/components/layout/BackHeader';
 import { Screen } from '@/components/layout/Screen';
@@ -83,10 +83,18 @@ export default function UsernameScreen() {
           variant="primary"
           fullWidth
           disabled={!valid}
-          onPress={() => {
-            setUsername(value);
-            router.push('/onboarding/recovery');
-          }}
+          onPress={() =>
+            Alert.alert('Claim this handle?', `You'll be @${value}. You can change it any time.`, [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Confirm',
+                onPress: () => {
+                  setUsername(value);
+                  router.push('/onboarding/recovery');
+                },
+              },
+            ])
+          }
         />
         <View style={{ height: theme.space['3xl'] }} />
       </View>
