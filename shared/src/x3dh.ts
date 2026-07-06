@@ -69,6 +69,19 @@ export function verifySignedPreKey(spkPub: Uint8Array, spkSig: Uint8Array, ikPub
   }
 }
 
+/** Sign arbitrary bytes with the Ed25519 identity key (used for the auth challenge). */
+export function signBytes(message: Uint8Array, ikSecret: Uint8Array): Uint8Array {
+  return ed25519.sign(message, ikSecret);
+}
+
+export function verifyBytes(message: Uint8Array, sig: Uint8Array, ikPub: Uint8Array): boolean {
+  try {
+    return ed25519.verify(sig, message, ikPub);
+  } catch {
+    return false;
+  }
+}
+
 type Header = Omit<EnvelopeBytes, 'nonce' | 'ciphertext'>;
 
 /** Canonical AAD binding the routing header so a relay cannot swap the DH path. */

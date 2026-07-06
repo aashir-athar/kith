@@ -8,10 +8,17 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 
 import { env } from './env';
+import { auth } from './routes/auth';
+import { keys } from './routes/keys';
+import { rt } from './routes/rt';
 
 const app = new Hono();
 
 app.get('/health', (c) => c.json({ ok: true, service: 'kith-server', ts: Date.now() }));
+
+app.route('/auth', auth);
+app.route('/keys', keys);
+app.route('/rt', rt);
 
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   console.log(`[kith-server] listening on http://localhost:${info.port} (${env.NODE_ENV})`);
