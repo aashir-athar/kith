@@ -1,6 +1,6 @@
-// New chat. Presented modally. Two quick actions (scan a code, new community) sit above a
-// searchable people list. Tapping a person opens the existing direct thread when one exists,
-// otherwise it dismisses back to where the compose flow began.
+// New chat. Presented modally. A grouped actions card (new group, new community, scan a code)
+// sits above a searchable people list. Tapping a person opens the existing direct thread when
+// one exists, otherwise it creates one and drops into it.
 
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
@@ -15,6 +15,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { ListSectionLabel } from '@/components/ui/ListSectionLabel';
 import { SearchField } from '@/components/ui/SearchField';
 import { SettingsRow } from '@/components/ui/SettingsRow';
+import { Surface } from '@/components/ui/Surface';
 import { Text } from '@/components/ui/Text';
 import { users } from '@/lib/mockData';
 import { useChatStore } from '@/stores/useChatStore';
@@ -62,13 +63,11 @@ export default function NewChatScreen() {
           keyExtractor={(item) => item.id}
           ListHeaderComponent={
             <View>
-              <SettingsRow icon={QrCode} label="Scan a code" onPress={() => router.push('/scan')} />
-              <SettingsRow icon={UserPlus} label="New group" onPress={() => router.push('/new-group')} />
-              <SettingsRow
-                icon={Users}
-                label="New community"
-                onPress={() => router.push('/(tabs)/communities')}
-              />
+              <Surface variant="flat" style={{ marginHorizontal: theme.space.xl, overflow: 'hidden' }}>
+                <SettingsRow icon={UserPlus} label="New group" onPress={() => router.push('/new-group')} />
+                <SettingsRow icon={Users} label="New community" onPress={() => router.push('/new-community')} />
+                <SettingsRow icon={QrCode} label="Scan a code" onPress={() => router.push('/scan')} />
+              </Surface>
               <ListSectionLabel label="People" />
             </View>
           }

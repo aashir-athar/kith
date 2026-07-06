@@ -2,23 +2,31 @@
 // people, chats, and communities. Presented modally.
 
 import { router } from 'expo-router';
+import { Search } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { Screen } from '@/components/layout/Screen';
 import { Avatar } from '@/components/ui/Avatar';
+import { Icon } from '@/components/ui/Icon';
 import { ListSectionLabel } from '@/components/ui/ListSectionLabel';
 import { SearchField } from '@/components/ui/SearchField';
 import { Text } from '@/components/ui/Text';
-import { communities, conversationTitle, users } from '@/lib/mockData';
+import { conversationTitle, users } from '@/lib/mockData';
 import { useChatStore } from '@/stores/useChatStore';
+import { useCommunityStore } from '@/stores/useCommunityStore';
 import { useTheme } from '@/theme/ThemeProvider';
 
 export default function SearchScreen() {
   const theme = useTheme();
   const conversations = useChatStore((s) => s.conversations);
+  const communities = useCommunityStore((s) => s.communities);
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
+
+  const suggestions = [communities[0]?.name, users[0]?.displayName, users[1]?.displayName].filter(
+    (s): s is string => !!s,
+  );
 
   const people = q ? users.filter((u) => `${u.displayName} ${u.username}`.toLowerCase().includes(q)) : [];
   const chats = q ? conversations.filter((c) => conversationTitle(c).toLowerCase().includes(q)) : [];
@@ -48,11 +56,19 @@ export default function SearchScreen() {
         {q.length === 0 ? (
           <>
             <ListSectionLabel label="Try searching" />
-            <View style={{ paddingHorizontal: theme.space.xl, gap: theme.space.sm }}>
-              <Text variant="body" tone="secondary">People by name or username</Text>
-              <Text variant="body" tone="secondary">Conversations and communities</Text>
-              <Text variant="body" tone="secondary">Messages across your encrypted history</Text>
-            </View>
+            {suggestions.map((s) => (
+              <Pressable
+                key={s}
+                accessibilityRole="button"
+                accessibilityLabel={`Search ${s}`}
+                onPress={() => setQuery(s)}
+                style={rowStyle}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.md }}>
+                  <Icon icon={Search} size={18} tone="tertiary" />
+                  <Text variant="body">{s}</Text>
+                </View>
+              </Pressable>
+            ))}
           </>
         ) : null}
 
