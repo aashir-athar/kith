@@ -27,6 +27,7 @@ interface ChatState {
   toggleStar: (conversationId: string, messageId: string) => void;
   togglePinMessage: (conversationId: string, messageId: string) => void;
   editMessage: (conversationId: string, messageId: string, text: string) => void;
+  retryMessage: (conversationId: string, messageId: string) => void;
   deleteMessage: (conversationId: string, messageId: string) => void;
   forwardMessage: (fromId: string, messageId: string, toId: string) => void;
   markRead: (conversationId: string) => void;
@@ -154,6 +155,10 @@ export const useChatStore = create<ChatState>((set, get) => {
       update(conversationId, messageId, (m) => ({ ...m, pinned: !m.pinned })),
     editMessage: (conversationId, messageId, text) =>
       update(conversationId, messageId, (m) => ({ ...m, text: text.trim(), editedAt: new Date().toISOString() })),
+    retryMessage: (conversationId, messageId) => {
+      update(conversationId, messageId, (m) => ({ ...m, status: 'sending' }));
+      advance(conversationId, messageId);
+    },
     deleteMessage: (conversationId, messageId) =>
       set((state) => ({
         messages: {

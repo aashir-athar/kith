@@ -68,6 +68,7 @@ export default function ConversationScreen() {
   const toggleStar = useChatStore((s) => s.toggleStar);
   const togglePinMessage = useChatStore((s) => s.togglePinMessage);
   const editMessage = useChatStore((s) => s.editMessage);
+  const retryMessage = useChatStore((s) => s.retryMessage);
   const deleteMessage = useChatStore((s) => s.deleteMessage);
   const forwardMessage = useChatStore((s) => s.forwardMessage);
   const markRead = useChatStore((s) => s.markRead);
@@ -251,7 +252,12 @@ export default function ConversationScreen() {
                 const replyPreview = replied ? { author: authorName(replied), text: previewText(replied) } : undefined;
                 return (
                   <Pressable onLongPress={() => setSelected(message)} delayLongPress={220}>
-                    <ChatBubble message={message} mine={message.senderId === me.id} replyPreview={replyPreview} />
+                    <ChatBubble
+                      message={message}
+                      mine={message.senderId === me.id}
+                      replyPreview={replyPreview}
+                      onRetry={() => retryMessage(cid, message.id)}
+                    />
                   </Pressable>
                 );
               }}

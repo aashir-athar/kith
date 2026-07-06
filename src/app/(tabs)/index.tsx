@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 
 import { EmptyState } from '@/components/feedback/EmptyState';
+import { OfflineBanner } from '@/components/feedback/OfflineBanner';
 import { Header } from '@/components/layout/Header';
 import { Screen } from '@/components/layout/Screen';
 import { ChatListItem } from '@/components/ui/ChatListItem';
@@ -80,6 +81,8 @@ export default function ChatsScreen() {
           </IconButton>
         }
       />
+
+      <OfflineBanner />
 
       <View style={{ paddingHorizontal: theme.space.xl, paddingBottom: theme.space.sm }}>
         <SearchField value={query} onChangeText={setQuery} placeholder="Search chats" />

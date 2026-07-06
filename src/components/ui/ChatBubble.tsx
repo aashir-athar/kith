@@ -4,7 +4,7 @@
 
 import { Forward, Flame, Heart, Laugh, type LucideIcon, Star, ThumbsUp } from 'lucide-react-native';
 import { type ReactNode } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { DocumentMessage } from '@/components/message/DocumentMessage';
 import { LocationMessage } from '@/components/message/LocationMessage';
@@ -30,9 +30,10 @@ export interface ChatBubbleProps {
   message: Message;
   mine: boolean;
   replyPreview?: { author: string; text: string };
+  onRetry?: () => void;
 }
 
-export function ChatBubble({ message, mine, replyPreview }: ChatBubbleProps) {
+export function ChatBubble({ message, mine, replyPreview, onRetry }: ChatBubbleProps) {
   const theme = useTheme();
   const hasReactions = !!message.reactions && message.reactions.length > 0;
 
@@ -149,6 +150,18 @@ export function ChatBubble({ message, mine, replyPreview }: ChatBubbleProps) {
             </View>
           ))}
         </View>
+      ) : null}
+
+      {mine && message.status === 'failed' ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Message not delivered. Tap to retry."
+          onPress={onRetry}
+          style={{ alignSelf: 'flex-end', marginTop: theme.space.xxs }}>
+          <Text variant="caption" tone="danger">
+            Not delivered. Tap to retry.
+          </Text>
+        </Pressable>
       ) : null}
     </View>
   );

@@ -66,6 +66,7 @@ export const messagesByConversation: Record<string, Message[]> = {
   [CONV_PRIYA]: [
     { id: 'p1', conversationId: CONV_PRIYA, senderId: priya.id, kind: 'text', text: 'Are we still on for the call tomorrow?', createdAt: iso(3 * HR), status: 'read' },
     { id: 'p2', conversationId: CONV_PRIYA, senderId: me.id, kind: 'text', text: 'sounds good, talk tomorrow', createdAt: iso(2 * HR), status: 'read' },
+    { id: 'p3', conversationId: CONV_PRIYA, senderId: me.id, kind: 'text', text: 'one more thing before the call', createdAt: iso(20 * MIN), status: 'failed' },
   ],
   [CONV_KWAME]: [
     { id: 'k1', conversationId: CONV_KWAME, senderId: kwame.id, kind: 'text', text: 'Happy to help, whenever', createdAt: iso(3 * DAY), status: 'read' },
