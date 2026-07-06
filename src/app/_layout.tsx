@@ -43,6 +43,7 @@ function RootNavigator() {
         <Stack.Screen name="archived" />
         <Stack.Screen name="new" options={{ presentation: 'modal' }} />
         <Stack.Screen name="new-group" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="new-community" options={{ presentation: 'modal' }} />
         <Stack.Screen name="search" options={{ presentation: 'modal' }} />
         <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
         <Stack.Screen name="recovery-pin" options={{ presentation: 'modal' }} />

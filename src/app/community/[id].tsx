@@ -3,50 +3,28 @@
 // straight into an encrypted chat.
 
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Hash, Megaphone, Users } from 'lucide-react-native';
+import { Hash, Megaphone, Users } from 'lucide-react-native';
 import { Pressable, ScrollView, View } from 'react-native';
 
+import { BackHeader } from '@/components/layout/BackHeader';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { Screen } from '@/components/layout/Screen';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
-import { IconButton } from '@/components/ui/IconButton';
 import { ListSectionLabel } from '@/components/ui/ListSectionLabel';
 import { Text } from '@/components/ui/Text';
-import { communities } from '@/lib/mockData';
+import { useCommunityStore } from '@/stores/useCommunityStore';
 import { useTheme } from '@/theme/ThemeProvider';
 
 function formatCount(n: number): string {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
-function BackHeader({ title }: { title: string }) {
-  const theme = useTheme();
-  return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: theme.space.xs,
-        paddingHorizontal: theme.space.md,
-        paddingTop: theme.space.sm,
-        paddingBottom: theme.space.sm,
-      }}>
-      <IconButton accessibilityLabel="Go back" onPress={() => router.back()}>
-        <Icon icon={ArrowLeft} tone="ink" />
-      </IconButton>
-      <Text variant="headline" numberOfLines={1} style={{ flex: 1 }}>
-        {title}
-      </Text>
-    </View>
-  );
-}
-
 export default function CommunityScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const cid = typeof id === 'string' ? id : '';
-  const community = communities.find((c) => c.id === cid);
+  const community = useCommunityStore((s) => s.communities.find((c) => c.id === cid));
 
   if (!community) {
     return (

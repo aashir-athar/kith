@@ -12,7 +12,7 @@ import { Fab } from '@/components/ui/Fab';
 import { Icon } from '@/components/ui/Icon';
 import { Surface } from '@/components/ui/Surface';
 import { Text } from '@/components/ui/Text';
-import { communities } from '@/lib/mockData';
+import { useCommunityStore } from '@/stores/useCommunityStore';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { Community } from '@/types/models';
 
@@ -66,6 +66,7 @@ function CommunityCard({ community }: { community: Community }) {
 
 export default function CommunitiesScreen() {
   const theme = useTheme();
+  const communities = useCommunityStore((s) => s.communities);
 
   if (communities.length === 0) {
     return (
@@ -94,7 +95,7 @@ export default function CommunitiesScreen() {
           <CommunityCard key={community.id} community={community} />
         ))}
       </ScrollView>
-      <Fab icon={Plus} accessibilityLabel="New community" />
+      <Fab icon={Plus} accessibilityLabel="New community" onPress={() => router.push('/new-community')} />
     </Screen>
   );
 }
