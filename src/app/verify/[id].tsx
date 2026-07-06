@@ -4,12 +4,13 @@
 import { useLocalSearchParams } from 'expo-router';
 import { QrCode, ShieldCheck } from 'lucide-react-native';
 import { useState } from 'react';
-import { ScrollView, Switch, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { BackHeader } from '@/components/layout/BackHeader';
 import { Screen } from '@/components/layout/Screen';
 import { Icon } from '@/components/ui/Icon';
 import { Surface } from '@/components/ui/Surface';
+import { Toggle } from '@/components/ui/Toggle';
 import { Text } from '@/components/ui/Text';
 import { conversationTitle } from '@/lib/mockData';
 import { useChatStore } from '@/stores/useChatStore';
@@ -78,13 +79,7 @@ export default function VerifyScreen() {
               Verified contacts show a badge, and you are alerted if their key ever changes.
             </Text>
           </View>
-          <Switch
-            value={verified}
-            onValueChange={setVerified}
-            trackColor={{ true: theme.colors.accent, false: theme.colors.overlay }}
-            thumbColor={theme.colors.ink}
-            ios_backgroundColor={theme.colors.overlay}
-          />
+          <Toggle value={verified} onValueChange={setVerified} accessibilityLabel="Mark as verified" />
         </Surface>
       </ScrollView>
     </Screen>

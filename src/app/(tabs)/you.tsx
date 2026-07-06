@@ -57,13 +57,6 @@ export default function YouScreen() {
           <Icon icon={ChevronRight} size={20} tone="tertiary" />
         </Pressable>
 
-        <View style={{ gap: theme.space.sm }}>
-          <Text variant="caption" tone="secondary" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>
-            Appearance
-          </Text>
-          <SegmentedControl options={MODES} value={theme.mode} onChange={theme.setMode} />
-        </View>
-
         <Surface variant="flat" style={{ overflow: 'hidden' }}>
           <SettingsRow icon={ShieldCheck} label="Privacy & security" onPress={() => router.push('/settings/privacy')} />
           {divider}
@@ -75,6 +68,13 @@ export default function YouScreen() {
           {divider}
           <SettingsRow icon={HardDrive} label="Storage" onPress={() => router.push('/settings/storage')} />
         </Surface>
+
+        <View style={{ gap: theme.space.sm }}>
+          <Text variant="caption" tone="secondary" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>
+            Appearance
+          </Text>
+          <SegmentedControl options={MODES} value={theme.mode} onChange={theme.setMode} />
+        </View>
 
         <View style={{ gap: theme.space.sm }}>
           <Text variant="caption" tone="secondary" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>

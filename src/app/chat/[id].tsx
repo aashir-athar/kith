@@ -5,7 +5,7 @@ import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Archive, Bell, ChevronRight, MessageCircle, Phone, Search, ShieldCheck, Video, type LucideIcon } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { BackHeader } from '@/components/layout/BackHeader';
 import { Screen } from '@/components/layout/Screen';
@@ -15,6 +15,7 @@ import { ListSectionLabel } from '@/components/ui/ListSectionLabel';
 import { SettingsRow } from '@/components/ui/SettingsRow';
 import { Surface } from '@/components/ui/Surface';
 import { Text } from '@/components/ui/Text';
+import { Toggle } from '@/components/ui/Toggle';
 import { conversationPeer, conversationTitle, me, usersById } from '@/lib/mockData';
 import { useChatStore } from '@/stores/useChatStore';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -178,15 +179,7 @@ export default function ChatInfoScreen() {
             label="Mute notifications"
             icon={Bell}
             onPress={() => setMuted((v) => !v)}
-            right={
-              <Switch
-                value={muted}
-                onValueChange={setMuted}
-                trackColor={{ true: theme.colors.accent, false: theme.colors.overlay }}
-                thumbColor={theme.colors.ink}
-                ios_backgroundColor={theme.colors.overlay}
-              />
-            }
+            right={<Toggle value={muted} onValueChange={setMuted} accessibilityLabel="Mute notifications" />}
           />
           {divider}
           <SettingsRow label="Disappearing messages" value="Off" />

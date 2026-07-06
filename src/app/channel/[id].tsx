@@ -3,12 +3,13 @@
 import { useLocalSearchParams } from 'expo-router';
 import { Bell, Hash, Megaphone } from 'lucide-react-native';
 import { useState } from 'react';
-import { ScrollView, Switch, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { BackHeader } from '@/components/layout/BackHeader';
 import { Screen } from '@/components/layout/Screen';
 import { Icon } from '@/components/ui/Icon';
 import { Surface } from '@/components/ui/Surface';
+import { Toggle } from '@/components/ui/Toggle';
 import { Text } from '@/components/ui/Text';
 import { communities } from '@/lib/mockData';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -55,13 +56,7 @@ export default function ChannelScreen() {
             <Text variant="body" style={{ flex: 1 }}>
               Notifications
             </Text>
-            <Switch
-              value={following}
-              onValueChange={setFollowing}
-              trackColor={{ true: theme.colors.accent, false: theme.colors.overlay }}
-              thumbColor={theme.colors.ink}
-              ios_backgroundColor={theme.colors.overlay}
-            />
+            <Toggle value={following} onValueChange={setFollowing} accessibilityLabel="Channel notifications" />
           </Surface>
         </View>
 

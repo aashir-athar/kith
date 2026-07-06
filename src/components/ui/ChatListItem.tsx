@@ -53,7 +53,7 @@ export function ChatListItem({ conversation, onPress }: ChatListItemProps) {
       </View>
 
       <View style={{ alignItems: 'flex-end', gap: theme.space.xs }}>
-        <Text variant="caption" tone={unread ? 'accent' : 'tertiary'}>
+        <Text variant="caption" tone={unread ? 'secondary' : 'tertiary'}>
           {conversation.lastMessageAt ? relativeTime(conversation.lastMessageAt) : ''}
         </Text>
         {unread ? (

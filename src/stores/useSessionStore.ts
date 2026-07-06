@@ -9,19 +9,23 @@ import type { User } from '@/types/models';
 interface SessionState {
   currentUser: User;
   onboarded: boolean;
+  recoveryMethod: 'none' | 'pin' | 'phrase';
   setUsername: (username: string) => void;
   setDisplayName: (displayName: string) => void;
   setBio: (bio: string) => void;
   setAvatarUrl: (avatarUrl: string | undefined) => void;
+  setRecoveryMethod: (method: 'none' | 'pin' | 'phrase') => void;
   completeOnboarding: () => void;
 }
 
 export const useSessionStore = create<SessionState>((set) => ({
   currentUser: me,
   onboarded: true,
+  recoveryMethod: 'none',
   setUsername: (username) => set((state) => ({ currentUser: { ...state.currentUser, username } })),
   setDisplayName: (displayName) => set((state) => ({ currentUser: { ...state.currentUser, displayName } })),
   setBio: (bio) => set((state) => ({ currentUser: { ...state.currentUser, bio } })),
   setAvatarUrl: (avatarUrl) => set((state) => ({ currentUser: { ...state.currentUser, avatarUrl } })),
+  setRecoveryMethod: (recoveryMethod) => set({ recoveryMethod }),
   completeOnboarding: () => set({ onboarded: true }),
 }));

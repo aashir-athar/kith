@@ -119,7 +119,7 @@ export function ChatBubble({ message, mine, replyPreview }: ChatBubbleProps) {
               edited
             </Text>
           ) : null}
-          <Text variant="caption" tone="tertiary">
+          <Text variant="caption" tone="secondary">
             {clockTime(message.createdAt)}
           </Text>
           {mine ? <MessageStatus status={message.status} /> : null}

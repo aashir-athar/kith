@@ -15,6 +15,8 @@ import { useTheme } from '@/theme/ThemeProvider';
 export default function AccountScreen() {
   const theme = useTheme();
   const user = useSessionStore((s) => s.currentUser);
+  const recoveryMethod = useSessionStore((s) => s.recoveryMethod);
+  const recoveryLabel = recoveryMethod === 'pin' ? 'On' : recoveryMethod === 'phrase' ? 'Phrase' : 'Not set';
 
   const divider = (
     <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.colors.hairline, marginLeft: theme.space.xl }} />
@@ -36,11 +38,11 @@ export default function AccountScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: theme.space['6xl'] }}>
         <ListSectionLabel label="Identity" />
         <Surface variant="flat" style={{ marginHorizontal: theme.space.xl, overflow: 'hidden' }}>
-          <SettingsRow label="Username" value={`@${user.username}`} />
+          <SettingsRow label="Username" value={`@${user.username}`} onPress={() => router.push('/settings/profile')} />
           {divider}
-          <SettingsRow label="Display name" value={user.displayName} />
+          <SettingsRow label="Display name" value={user.displayName} onPress={() => router.push('/settings/profile')} />
           {divider}
-          <SettingsRow label="Recovery PIN" value="Set" onPress={() => undefined} />
+          <SettingsRow label="Recovery PIN" value={recoveryLabel} onPress={() => router.push('/settings/recovery')} />
         </Surface>
 
         <ListSectionLabel label="Data" />

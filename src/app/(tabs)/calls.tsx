@@ -81,7 +81,7 @@ export default function CallsScreen() {
     <Screen>
       <Header
         title="Calls"
-        subtitle="End-to-end encrypted"
+        subtitle="Recents"
         right={
           <IconButton accessibilityLabel="New call" onPress={() => router.push('/new')}>
             <Icon icon={Phone} tone="secondary" />

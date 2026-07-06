@@ -70,7 +70,7 @@ export default function CommunitiesScreen() {
   if (communities.length === 0) {
     return (
       <Screen>
-        <Header title="Communities" subtitle="Encrypted, moderated, yours" />
+        <Header title="Communities" subtitle="Rooms for your people" />
         <EmptyState
           title="No communities yet"
           body="Join or start a community. Even in a group of thousands, what you say stays between members."
@@ -81,7 +81,7 @@ export default function CommunitiesScreen() {
 
   return (
     <Screen>
-      <Header title="Communities" subtitle="Encrypted, moderated, yours" />
+      <Header title="Communities" subtitle="Rooms for your people" />
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: theme.space.xl,
