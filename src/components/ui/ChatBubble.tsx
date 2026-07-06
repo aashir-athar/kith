@@ -78,7 +78,7 @@ export function ChatBubble({ message, mine, replyPreview, author, onRetry }: Cha
     <View style={{ maxWidth: '82%', alignSelf: mine ? 'flex-end' : 'flex-start', marginVertical: theme.space.xxs }}>
       <View
         style={{
-          backgroundColor: mine ? theme.colors.elevated : theme.colors.surface,
+          backgroundColor: mine ? theme.colors.overlay : theme.colors.surface,
           borderRadius: 18,
           borderBottomRightRadius: mine ? 6 : 18,
           borderBottomLeftRadius: mine ? 18 : 6,

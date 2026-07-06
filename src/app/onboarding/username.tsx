@@ -65,7 +65,7 @@ export default function UsernameScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs }}>
               <Icon icon={Check} size={15} tone="success" />
               <Text variant="footnote" tone="secondary">
-                @{value} will be reserved to you.
+                @{value} looks good. You can change it any time.
               </Text>
             </View>
           ) : null}

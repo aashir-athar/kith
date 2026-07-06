@@ -213,16 +213,20 @@ export default function ConversationScreen() {
           </View>
         </Pressable>
 
-        <IconButton
-          accessibilityLabel="Start video call"
-          onPress={() => router.push({ pathname: '/call/[id]', params: { id: callTargetId, kind: 'video' } })}>
-          <Icon icon={Video} tone="secondary" />
-        </IconButton>
-        <IconButton
-          accessibilityLabel="Start voice call"
-          onPress={() => router.push({ pathname: '/call/[id]', params: { id: callTargetId, kind: 'audio' } })}>
-          <Icon icon={Phone} tone="secondary" />
-        </IconButton>
+        {!isChannel ? (
+          <>
+            <IconButton
+              accessibilityLabel="Start video call"
+              onPress={() => router.push({ pathname: '/call/[id]', params: { id: callTargetId, kind: 'video' } })}>
+              <Icon icon={Video} tone="secondary" />
+            </IconButton>
+            <IconButton
+              accessibilityLabel="Start voice call"
+              onPress={() => router.push({ pathname: '/call/[id]', params: { id: callTargetId, kind: 'audio' } })}>
+              <Icon icon={Phone} tone="secondary" />
+            </IconButton>
+          </>
+        ) : null}
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

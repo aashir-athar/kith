@@ -3,7 +3,7 @@
 // "connected" before it could be. Coral is intentionally absent; the one focus is hanging up.
 
 import { router, useLocalSearchParams } from 'expo-router';
-import { Mic, MicOff, PhoneOff, ShieldCheck, Video, VideoOff, Volume2 } from 'lucide-react-native';
+import { Mic, MicOff, PhoneOff, ShieldAlert, ShieldCheck, Video, VideoOff, Volume2 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,6 +23,7 @@ export default function CallScreen() {
   const peerId = typeof id === 'string' ? id : '';
   const peer = usersById[peerId];
   const peerName = peer?.displayName ?? 'Unknown';
+  const verified = peer?.verified ?? false;
   const isVideo = kind === 'video';
 
   const [connected, setConnected] = useState(false);
@@ -83,9 +84,9 @@ export default function CallScreen() {
               accessibilityLabel="Verify safety number"
               onPress={() => router.push({ pathname: '/verify/[id]', params: { id: peerId } })}
               style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xxs }}>
-              <Icon icon={ShieldCheck} size={14} tone="success" />
+              <Icon icon={verified ? ShieldCheck : ShieldAlert} size={14} tone={verified ? 'success' : 'warning'} />
               <Text variant="caption" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                Encrypted · {statusLine}
+                {verified ? 'Encrypted' : 'Tap to verify'} · {statusLine}
               </Text>
             </Pressable>
           </View>
@@ -102,9 +103,9 @@ export default function CallScreen() {
               accessibilityLabel="Verify safety number"
               onPress={() => router.push({ pathname: '/verify/[id]', params: { id: peerId } })}
               style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs }}>
-              <Icon icon={ShieldCheck} tone="success" size={16} />
+              <Icon icon={verified ? ShieldCheck : ShieldAlert} tone={verified ? 'success' : 'warning'} size={16} />
               <Text variant="footnote" tone="accent">
-                End-to-end encrypted · verify
+                {verified ? 'End-to-end encrypted · verify' : 'Encrypted · tap to verify'}
               </Text>
             </Pressable>
             <Text variant="mono" tone="secondary">
