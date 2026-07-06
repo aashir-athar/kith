@@ -87,7 +87,7 @@ export default function CallsScreen() {
       {calls.length === 0 ? (
         <EmptyState
           title="No calls yet"
-          body="Your calls are end-to-end encrypted. Start one from any chat."
+          body="Call anyone from a chat. Voice and video, encrypted the whole way through."
         />
       ) : (
         <View style={{ flex: 1 }}>

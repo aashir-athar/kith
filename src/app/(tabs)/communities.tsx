@@ -73,7 +73,7 @@ export default function CommunitiesScreen() {
         <Header title="Communities" subtitle="Encrypted, moderated, yours" />
         <EmptyState
           title="No communities yet"
-          body="Join or create an encrypted community. Group messages stay end-to-end encrypted, so what you say stays with your people."
+          body="Join or start a community. Even in a group of thousands, what you say stays between members."
         />
       </Screen>
     );

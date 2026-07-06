@@ -26,7 +26,7 @@ export default function UsernameScreen() {
         <View style={{ gap: theme.space.sm }}>
           <Text variant="displayLg">Choose a username</Text>
           <Text variant="body" tone="secondary">
-            Usernames replace phone numbers on Kith. People find you by your handle, and you can rotate it any time.
+            Your handle is how people find you. No phone number, and you can change it any time.
           </Text>
         </View>
 

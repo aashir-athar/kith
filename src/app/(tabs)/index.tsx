@@ -76,7 +76,7 @@ export default function ChatsScreen() {
       {filtered.length === 0 ? (
         <EmptyState
           title="No conversations yet"
-          body="Start a chat and it lands here, end-to-end encrypted by default."
+          body="Your conversations show up here. Start one, and only the two of you can read it."
         />
       ) : (
         <View style={{ flex: 1 }}>

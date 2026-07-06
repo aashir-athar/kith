@@ -19,15 +19,15 @@ export default function WelcomeScreen() {
         </View>
 
         <View style={{ gap: theme.space.md }}>
-          <Text variant="displayLg">Private by default. Your people, your keys.</Text>
+          <Text variant="displayLg">Nobody should read your messages. Not even us.</Text>
           <Text variant="body" tone="secondary">
-            Every message, call, and group is end to end encrypted from the first tap. No phone number required. Your
+            Kith encrypts every chat, call, and group end to end by default. No phone number, no ads, no backdoor. Your
             history is yours, and it moves with you.
           </Text>
         </View>
 
         <View style={{ gap: theme.space.sm }}>
-          <Button label="Get started" variant="primary" fullWidth onPress={() => router.push('/onboarding/username')} />
+          <Button label="Create my account" variant="primary" fullWidth onPress={() => router.push('/onboarding/username')} />
           <Button label="I already have an account" variant="ghost" fullWidth onPress={() => router.replace('/')} />
         </View>
       </View>

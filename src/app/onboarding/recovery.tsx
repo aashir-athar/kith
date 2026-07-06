@@ -70,9 +70,8 @@ export default function RecoveryScreen() {
         <View style={{ gap: theme.space.sm }}>
           <Text variant="displayLg">Secure your account</Text>
           <Text variant="body" tone="secondary">
-            A PIN protects your encrypted history and restores it from a hardware backed vault, so a lost phone never
-            means a lost account. A recovery phrase is an optional advanced backup, never the only thing between you and
-            your messages.
+            Lose your phone, keep your messages. A PIN unlocks your encrypted history from a hardware backed vault, guess
+            limited so no one can brute force it. Want to hold the only key yourself? Use a recovery phrase instead.
           </Text>
         </View>
 
