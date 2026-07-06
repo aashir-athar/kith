@@ -3,7 +3,7 @@
 
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Bell, ChevronRight, MessageCircle, Phone, Search, ShieldCheck, Video, type LucideIcon } from 'lucide-react-native';
+import { Archive, Bell, ChevronRight, MessageCircle, Phone, Search, ShieldCheck, Video, type LucideIcon } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
@@ -26,6 +26,7 @@ export default function ChatInfoScreen() {
   const cid = typeof id === 'string' ? id : '';
   const conversation = useChatStore((s) => s.conversations.find((c) => c.id === cid));
   const messages = useChatStore((s) => s.messages[cid]) ?? [];
+  const toggleArchive = useChatStore((s) => s.toggleArchive);
   const [muted, setMuted] = useState(conversation?.muted ?? false);
 
   if (!conversation) {
@@ -189,6 +190,15 @@ export default function ChatInfoScreen() {
           />
           {divider}
           <SettingsRow label="Disappearing messages" value="Off" />
+          {divider}
+          <SettingsRow
+            label={conversation.archived ? 'Unarchive chat' : 'Archive chat'}
+            icon={Archive}
+            onPress={() => {
+              toggleArchive(cid);
+              router.back();
+            }}
+          />
         </Surface>
 
         <ListSectionLabel label="Safety" />

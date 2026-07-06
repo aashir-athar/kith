@@ -107,7 +107,7 @@ export default function CommunityScreen() {
                   ? `Open ${channel.name} channel, ${channel.unreadCount} unread`
                   : `Open ${channel.name} channel`
               }
-              onPress={() => router.push('/conversation/' + channel.id)}
+              onPress={() => router.push(isAnnouncement ? '/channel/' + channel.id : '/conversation/' + channel.id)}
               style={({ pressed }) => ({
                 flexDirection: 'row',
                 alignItems: 'center',

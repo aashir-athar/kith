@@ -3,7 +3,7 @@
 
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import { Bell, ChevronRight, ShieldCheck, Star, UserPlus } from 'lucide-react-native';
+import { Bell, ChevronRight, HardDrive, ShieldCheck, Star, UserPlus } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Header } from '@/components/layout/Header';
@@ -72,6 +72,8 @@ export default function YouScreen() {
           <SettingsRow icon={UserPlus} label="Account" onPress={() => router.push('/settings/account')} />
           {divider}
           <SettingsRow icon={Star} label="Starred messages" onPress={() => router.push('/settings/starred')} />
+          {divider}
+          <SettingsRow icon={HardDrive} label="Storage" onPress={() => router.push('/settings/storage')} />
         </Surface>
 
         <View style={{ gap: theme.space.sm }}>

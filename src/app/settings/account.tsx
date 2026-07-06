@@ -1,5 +1,6 @@
 // Account. Identity is server-authenticated and never lost; delete is guarded by a confirm.
 
+import { router } from 'expo-router';
 import { Trash2 } from 'lucide-react-native';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -44,12 +45,7 @@ export default function AccountScreen() {
 
         <ListSectionLabel label="Data" />
         <Surface variant="flat" style={{ marginHorizontal: theme.space.xl, overflow: 'hidden' }}>
-          <SettingsRow
-            label="Export account data"
-            onPress={() =>
-              Alert.alert('Export account data', 'A signed, user-held-key encrypted archive would be prepared here.')
-            }
-          />
+          <SettingsRow label="Export account data" onPress={() => router.push('/settings/export')} />
         </Surface>
 
         <ListSectionLabel label="Danger zone" />

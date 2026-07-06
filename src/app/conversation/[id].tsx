@@ -19,6 +19,7 @@ import { ForwardSheet } from '@/components/ui/ForwardSheet';
 import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/IconButton';
 import { MessageActionsSheet, type MessageAction } from '@/components/ui/MessageActionsSheet';
+import { StickerPicker } from '@/components/ui/StickerPicker';
 import { Text } from '@/components/ui/Text';
 import { newId } from '@/lib/id';
 import { conversationPeer, conversationTitle, me, usersById } from '@/lib/mockData';
@@ -56,6 +57,7 @@ export default function ConversationScreen() {
   const sendImage = useChatStore((s) => s.sendImage);
   const sendDocument = useChatStore((s) => s.sendDocument);
   const sendVoice = useChatStore((s) => s.sendVoice);
+  const sendSticker = useChatStore((s) => s.sendSticker);
   const sendLocation = useChatStore((s) => s.sendLocation);
   const sendContact = useChatStore((s) => s.sendContact);
   const sendPoll = useChatStore((s) => s.sendPoll);
@@ -74,6 +76,7 @@ export default function ConversationScreen() {
   const [attachVisible, setAttachVisible] = useState(false);
   const [forwardId, setForwardId] = useState<string | null>(null);
   const [catchUpDismissed, setCatchUpDismissed] = useState(false);
+  const [stickerVisible, setStickerVisible] = useState(false);
 
   const title = conversation ? conversationTitle(conversation) : 'Conversation';
   const callTargetId = conversation ? (conversationPeer(conversation)?.id ?? cid) : cid;
@@ -233,6 +236,7 @@ export default function ConversationScreen() {
           onChangeText={setText}
           onSend={handleSend}
           onAttachPress={() => setAttachVisible(true)}
+          onStickerPress={() => setStickerVisible(true)}
           onVoice={(sec) => sendVoice(cid, sec)}
           replyingTo={replyingTo ? { author: replyingTo.author, text: replyingTo.text } : undefined}
           onCancelReply={() => setReplyingTo(null)}
@@ -252,6 +256,7 @@ export default function ConversationScreen() {
         onReact={(key, message) => addReaction(cid, message.id, key)}
       />
       <AttachmentSheet visible={attachVisible} onClose={() => setAttachVisible(false)} onSelect={handleAttach} />
+      <StickerPicker visible={stickerVisible} onClose={() => setStickerVisible(false)} onSelect={(id) => sendSticker(cid, id)} />
       <ForwardSheet
         visible={forwardId !== null}
         onClose={() => setForwardId(null)}

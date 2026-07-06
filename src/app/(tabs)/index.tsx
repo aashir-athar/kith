@@ -4,7 +4,7 @@
 
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
-import { PenSquare, QrCode } from 'lucide-react-native';
+import { Archive, PenSquare, QrCode } from 'lucide-react-native';
 import { useState } from 'react';
 import { View } from 'react-native';
 
@@ -16,6 +16,7 @@ import { Fab } from '@/components/ui/Fab';
 import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/IconButton';
 import { ListSectionLabel } from '@/components/ui/ListSectionLabel';
+import { SettingsRow } from '@/components/ui/SettingsRow';
 import { SearchField } from '@/components/ui/SearchField';
 import { FolderChips, type ChatFolder } from '@/components/ui/FolderChips';
 import { StoryStrip } from '@/components/ui/StoryStrip';
@@ -39,7 +40,9 @@ export default function ChatsScreen() {
   const [folder, setFolder] = useState<ChatFolder>('all');
 
   const q = query.trim().toLowerCase();
-  const byFolder = conversations.filter((c) => {
+  const active = conversations.filter((c) => !c.archived);
+  const archivedCount = conversations.filter((c) => c.archived).length;
+  const byFolder = active.filter((c) => {
     if (folder === 'unread') return c.unreadCount > 0;
     if (folder === 'groups') return c.kind === 'group';
     if (folder === 'pinned') return c.pinned;
@@ -85,6 +88,10 @@ export default function ChatsScreen() {
       <StoryStrip />
 
       <FolderChips value={folder} onChange={setFolder} />
+
+      {archivedCount > 0 ? (
+        <SettingsRow icon={Archive} label="Archived" value={String(archivedCount)} onPress={() => router.push('/archived')} />
+      ) : null}
 
       {filtered.length === 0 ? (
         <EmptyState

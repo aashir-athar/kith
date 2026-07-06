@@ -44,7 +44,7 @@ export const conversations: Conversation[] = [
   { id: CONV_PRIYA, kind: 'direct', participantIds: [me.id, priya.id], lastMessagePreview: 'You: sounds good, talk tomorrow', lastMessageAt: iso(2 * HR), unreadCount: 0, pinned: false, muted: false, encrypted: true },
   { id: CONV_MATEO, kind: 'direct', participantIds: [me.id, mateo.id], lastMessagePreview: 'Voice message', lastMessageAt: iso(6 * HR), unreadCount: 0, pinned: false, muted: false, encrypted: true },
   { id: CONV_NOA, kind: 'direct', participantIds: [me.id, noa.id], lastMessagePreview: 'Photo', lastMessageAt: iso(1 * DAY), unreadCount: 0, pinned: false, muted: true, encrypted: true },
-  { id: CONV_KWAME, kind: 'direct', participantIds: [me.id, kwame.id], lastMessagePreview: 'Happy to help, whenever', lastMessageAt: iso(3 * DAY), unreadCount: 0, pinned: false, muted: false, encrypted: true },
+  { id: CONV_KWAME, kind: 'direct', participantIds: [me.id, kwame.id], lastMessagePreview: 'Happy to help, whenever', lastMessageAt: iso(3 * DAY), unreadCount: 0, pinned: false, muted: false, encrypted: true, archived: true },
 ];
 
 export const messagesByConversation: Record<string, Message[]> = {

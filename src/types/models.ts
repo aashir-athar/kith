@@ -105,6 +105,7 @@ export interface Conversation {
   pinned: boolean;
   muted: boolean;
   encrypted: boolean;
+  archived?: boolean;
 }
 
 export type ChannelKind = 'text' | 'announcement';

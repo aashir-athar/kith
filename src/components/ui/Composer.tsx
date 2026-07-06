@@ -1,7 +1,7 @@
 // Message composer (controlled). Supports reply and edit context bars, attachments, and a
 // voice recording mode. Send is the one coral affordance; the mic takes its place when empty.
 
-import { ArrowUp, Mic, Paperclip, Trash2, X } from 'lucide-react-native';
+import { ArrowUp, Mic, Paperclip, Smile, Trash2, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +18,7 @@ export interface ComposerProps {
   onChangeText: (text: string) => void;
   onSend: () => void;
   onAttachPress?: () => void;
+  onStickerPress?: () => void;
   onVoice?: (durationSec: number) => void;
   replyingTo?: { author: string; text: string };
   onCancelReply?: () => void;
@@ -30,6 +31,7 @@ export function Composer({
   onChangeText,
   onSend,
   onAttachPress,
+  onStickerPress,
   onVoice,
   replyingTo,
   onCancelReply,
@@ -140,12 +142,14 @@ export function Composer({
           <View
             style={{
               flex: 1,
+              flexDirection: 'row',
+              alignItems: 'flex-end',
+              gap: theme.space.sm,
               backgroundColor: theme.colors.elevated,
               borderRadius: theme.radius.xl,
               paddingHorizontal: theme.space.lg,
               paddingVertical: theme.space.sm,
               minHeight: 40,
-              justifyContent: 'center',
             }}>
             <TextInput
               value={value}
@@ -154,6 +158,7 @@ export function Composer({
               placeholderTextColor={theme.colors.inkTertiary}
               multiline
               style={{
+                flex: 1,
                 color: theme.colors.ink,
                 fontFamily: fontFamily.body,
                 fontSize: 16,
@@ -162,6 +167,16 @@ export function Composer({
                 paddingBottom: 0,
               }}
             />
+            {onStickerPress ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Stickers and GIFs"
+                hitSlop={theme.hitSlop}
+                onPress={onStickerPress}
+                style={{ paddingBottom: 2 }}>
+                <Icon icon={Smile} size={22} tone="secondary" />
+              </Pressable>
+            ) : null}
           </View>
 
           {canSend ? (

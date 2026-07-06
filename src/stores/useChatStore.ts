@@ -31,6 +31,7 @@ interface ChatState {
   forwardMessage: (fromId: string, messageId: string, toId: string) => void;
   markRead: (conversationId: string) => void;
   togglePin: (conversationId: string) => void;
+  toggleArchive: (conversationId: string) => void;
   createGroup: (name: string, memberIds: string[]) => string;
 }
 
@@ -193,6 +194,10 @@ export const useChatStore = create<ChatState>((set) => {
     togglePin: (conversationId) =>
       set((state) => ({
         conversations: state.conversations.map((c) => (c.id === conversationId ? { ...c, pinned: !c.pinned } : c)),
+      })),
+    toggleArchive: (conversationId) =>
+      set((state) => ({
+        conversations: state.conversations.map((c) => (c.id === conversationId ? { ...c, archived: !c.archived } : c)),
       })),
     createGroup: (name, memberIds) => {
       const id = newId();
