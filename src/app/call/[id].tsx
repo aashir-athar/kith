@@ -1,7 +1,6 @@
-// The active call: a full-immersive screen that owns its own floor (no Screen chrome, no
-// header). The encryption state is stated plainly under the name, a mono timer counts up,
-// and the only high-emphasis control is the red End button. Coral is intentionally absent;
-// on a live call the single point of attention is hanging up.
+// Active call. Branches on call kind: a real video layout (remote fill + self PiP) for video,
+// the avatar layout for audio. A connecting state precedes the timer, so it never claims
+// "connected" before it could be. Coral is intentionally absent; the one focus is hanging up.
 
 import { router, useLocalSearchParams } from 'expo-router';
 import { Mic, MicOff, PhoneOff, ShieldCheck, Video, VideoOff, Volume2 } from 'lucide-react-native';
@@ -20,58 +19,92 @@ import { useTheme } from '@/theme/ThemeProvider';
 export default function CallScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, kind } = useLocalSearchParams<{ id: string; kind?: string }>();
   const peerId = typeof id === 'string' ? id : '';
   const peer = usersById[peerId];
   const peerName = peer?.displayName ?? 'Unknown';
+  const isVideo = kind === 'video';
 
+  const [connected, setConnected] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [muted, setMuted] = useState(false);
-  const [videoOff, setVideoOff] = useState(false);
-  const [speakerOn, setSpeakerOn] = useState(false);
+  const [videoOff, setVideoOff] = useState(!isVideo);
+  const [speakerOn, setSpeakerOn] = useState(isVideo);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setSeconds((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(timer);
+    const connectTimer = setTimeout(() => setConnected(true), 1500);
+    return () => clearTimeout(connectTimer);
   }, []);
 
+  useEffect(() => {
+    if (!connected) return;
+    const timer = setInterval(() => setSeconds((prev) => prev + 1), 1000);
+    return () => clearInterval(timer);
+  }, [connected]);
+
   const controlSize = 64;
+  const showVideo = isVideo && !videoOff;
+  const statusLine = connected ? callDuration(seconds) : 'Connecting';
 
   return (
     <View
-      style={{
-        flex: 1,
-        backgroundColor: theme.colors.base,
-        paddingTop: insets.top,
-        paddingBottom: insets.bottom,
-      }}>
-      <View
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: theme.space.xl,
-          paddingHorizontal: theme.space.xl,
-        }}>
-        <Avatar name={peerName} seed={peerId} size={128} />
-
-        <View style={{ alignItems: 'center', gap: theme.space.sm }}>
-          <Text variant="displayLg" center>
-            {peerName}
-          </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs }}>
-            <Icon icon={ShieldCheck} tone="success" size={16} />
-            <Text variant="footnote" tone="secondary">
-              End-to-end encrypted
+      style={{ flex: 1, backgroundColor: theme.colors.base, paddingTop: showVideo ? 0 : insets.top, paddingBottom: insets.bottom }}>
+      {showVideo ? (
+        <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, backgroundColor: theme.colors.surface, alignItems: 'center', justifyContent: 'center', gap: theme.space.sm }}>
+            <Icon icon={Video} size={40} tone="tertiary" />
+            <Text variant="footnote" tone="tertiary">
+              {peerName}
             </Text>
           </View>
-          <Text variant="mono" tone="secondary">
-            {callDuration(seconds)}
-          </Text>
+          <View
+            style={{
+              position: 'absolute',
+              right: theme.space.lg,
+              top: insets.top + theme.space.lg,
+              width: 100,
+              height: 148,
+              borderRadius: theme.radius.md,
+              backgroundColor: theme.colors.elevated,
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden',
+            }}>
+            <Text variant="caption" tone="tertiary">
+              You
+            </Text>
+          </View>
+          <View style={{ position: 'absolute', top: insets.top + theme.space.lg, left: theme.space.xl, gap: 2 }}>
+            <Text variant="headline" style={{ color: '#FFFFFF' }}>
+              {peerName}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xxs }}>
+              <Icon icon={ShieldCheck} size={14} tone="success" />
+              <Text variant="caption" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                Encrypted · {statusLine}
+              </Text>
+            </View>
+          </View>
         </View>
-      </View>
+      ) : (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: theme.space.xl, paddingHorizontal: theme.space.xl }}>
+          <Avatar name={peerName} seed={peerId} size={128} />
+          <View style={{ alignItems: 'center', gap: theme.space.sm }}>
+            <Text variant="displayLg" center>
+              {peerName}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs }}>
+              <Icon icon={ShieldCheck} tone="success" size={16} />
+              <Text variant="footnote" tone="secondary">
+                End-to-end encrypted
+              </Text>
+            </View>
+            <Text variant="mono" tone="secondary">
+              {statusLine}
+            </Text>
+          </View>
+        </View>
+      )}
 
       <View
         style={{
@@ -89,7 +122,6 @@ export default function CallScreen() {
           onPress={() => setMuted((prev) => !prev)}>
           <Icon icon={muted ? MicOff : Mic} tone="ink" size={26} />
         </IconButton>
-
         <IconButton
           accessibilityLabel={videoOff ? 'Turn camera on' : 'Turn camera off'}
           variant="surface"
@@ -97,7 +129,6 @@ export default function CallScreen() {
           onPress={() => setVideoOff((prev) => !prev)}>
           <Icon icon={videoOff ? VideoOff : Video} tone="ink" size={26} />
         </IconButton>
-
         <IconButton
           accessibilityLabel={speakerOn ? 'Turn off speaker' : 'Turn on speaker'}
           variant="surface"
@@ -105,7 +136,6 @@ export default function CallScreen() {
           onPress={() => setSpeakerOn((prev) => !prev)}>
           <Icon icon={Volume2} tone={speakerOn ? 'accent' : 'ink'} size={26} />
         </IconButton>
-
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="End call"

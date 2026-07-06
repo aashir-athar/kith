@@ -4,7 +4,7 @@
 
 import { router } from 'expo-router';
 import { Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Video } from 'lucide-react-native';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 
 import { EmptyState } from '@/components/feedback/EmptyState';
@@ -16,6 +16,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { Text } from '@/components/ui/Text';
 import { relativeTime } from '@/lib/format';
 import { calls, usersById } from '@/lib/mockData';
+import { useChatStore } from '@/stores/useChatStore';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { CallRecord } from '@/types/models';
 
@@ -27,6 +28,7 @@ function directionIcon(direction: CallRecord['direction']) {
 
 function CallRow({ call }: { call: CallRecord }) {
   const theme = useTheme();
+  const createDirect = useChatStore((s) => s.createDirect);
   const peer = usersById[call.peerId];
   const name = peer?.displayName ?? 'Unknown';
   const missed = call.direction === 'missed';
@@ -35,15 +37,19 @@ function CallRow({ call }: { call: CallRecord }) {
   const DirIcon = directionIcon(call.direction);
 
   return (
-    <View
-      style={{
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Call history with ${name}`}
+      onPress={() => router.push({ pathname: '/conversation/[id]', params: { id: createDirect(call.peerId) } })}
+      style={({ pressed }) => ({
         flexDirection: 'row',
         alignItems: 'center',
         gap: theme.space.md,
         paddingHorizontal: theme.space.xl,
         paddingVertical: theme.space.sm,
         minHeight: 64,
-      }}>
+        backgroundColor: pressed ? theme.colors.surface : 'transparent',
+      })}>
       <Avatar name={name} seed={call.peerId} size={48} />
 
       <View style={{ flex: 1, gap: theme.space.xxs }}>
@@ -52,21 +58,19 @@ function CallRow({ call }: { call: CallRecord }) {
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs }}>
           <Icon icon={DirIcon} size={14} tone={missed ? 'danger' : 'secondary'} />
-          <Text variant="footnote" tone="secondary" numberOfLines={1}>
-            {kindLabel} · {relativeTime(call.startedAt)}
+          <Text variant="footnote" tone={missed ? 'danger' : 'secondary'} numberOfLines={1}>
+            {missed ? 'Missed' : kindLabel} · {relativeTime(call.startedAt)}
           </Text>
         </View>
       </View>
 
       <IconButton
-        accessibilityLabel={
-          isVideo ? `Video call ${name}` : `Call ${name}`
-        }
+        accessibilityLabel={isVideo ? `Video call ${name}` : `Call ${name}`}
         variant="surface"
-        onPress={() => router.push('/call/' + call.peerId)}>
+        onPress={() => router.push({ pathname: '/call/[id]', params: { id: call.peerId, kind: call.kind } })}>
         <Icon icon={isVideo ? Video : Phone} tone="ink" />
       </IconButton>
-    </View>
+    </Pressable>
   );
 }
 

@@ -76,7 +76,7 @@ export default function ChatInfoScreen() {
       <BackHeader />
       <ScrollView contentContainerStyle={{ paddingBottom: theme.space['6xl'] }}>
         <View style={{ alignItems: 'center', gap: theme.space.sm, paddingHorizontal: theme.space.xl }}>
-          <Avatar name={title} seed={cid} url={peer?.avatarUrl} size={96} />
+          <Avatar name={title} seed={peer?.id ?? cid} url={peer?.avatarUrl} size={96} />
           <Text variant="displayLg" center numberOfLines={1}>
             {title}
           </Text>

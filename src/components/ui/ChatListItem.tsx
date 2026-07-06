@@ -36,14 +36,14 @@ export function ChatListItem({ conversation, onPress }: ChatListItemProps) {
         paddingVertical: theme.space.sm,
         backgroundColor: pressed ? theme.colors.surface : 'transparent',
       })}>
-      <Avatar name={title} seed={conversation.id} url={peer?.avatarUrl} size={52} />
+      <Avatar name={title} seed={peer?.id ?? conversation.id} url={peer?.avatarUrl} size={52} />
 
       <View style={{ flex: 1, gap: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs }}>
           <Text variant="bodyStrong" numberOfLines={1} style={{ flexShrink: 1 }}>
             {title}
           </Text>
-          {peer?.verified ? <Icon icon={BadgeCheck} size={15} tone="accent" /> : null}
+          {conversation.kind === 'direct' && peer?.verified ? <Icon icon={BadgeCheck} size={15} tone="accent" /> : null}
           {conversation.pinned ? <Icon icon={Pin} size={13} tone="tertiary" /> : null}
           {conversation.muted ? <Icon icon={BellOff} size={13} tone="tertiary" /> : null}
         </View>

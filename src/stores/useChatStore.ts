@@ -33,6 +33,7 @@ interface ChatState {
   togglePin: (conversationId: string) => void;
   toggleArchive: (conversationId: string) => void;
   createGroup: (name: string, memberIds: string[]) => string;
+  createDirect: (userId: string) => string;
 }
 
 function previewFor(kind: MessageKind, text?: string): string {
@@ -58,7 +59,7 @@ function previewFor(kind: MessageKind, text?: string): string {
   }
 }
 
-export const useChatStore = create<ChatState>((set) => {
+export const useChatStore = create<ChatState>((set, get) => {
   const advance = (conversationId: string, id: string) => {
     const step = (status: DeliveryStatus, delay: number) =>
       setTimeout(() => {
@@ -212,6 +213,24 @@ export const useChatStore = create<ChatState>((set) => {
         encrypted: true,
         lastMessageAt: new Date().toISOString(),
         lastMessagePreview: 'New group',
+      };
+      set((state) => ({ conversations: [conversation, ...state.conversations] }));
+      return id;
+    },
+    createDirect: (userId) => {
+      const existing = get().conversations.find((c) => c.kind === 'direct' && c.participantIds.includes(userId));
+      if (existing) return existing.id;
+      const id = newId();
+      const conversation: Conversation = {
+        id,
+        kind: 'direct',
+        participantIds: [me.id, userId],
+        unreadCount: 0,
+        pinned: false,
+        muted: false,
+        encrypted: true,
+        lastMessageAt: new Date().toISOString(),
+        lastMessagePreview: '',
       };
       set((state) => ({ conversations: [conversation, ...state.conversations] }));
       return id;

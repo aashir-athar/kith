@@ -75,7 +75,7 @@ export default function ChatsScreen() {
         title="Chats"
         subtitle="Private by default"
         right={
-          <IconButton accessibilityLabel="New chat via QR" onPress={() => router.push('/new')}>
+          <IconButton accessibilityLabel="Scan a code" onPress={() => router.push('/scan')}>
             <Icon icon={QrCode} tone="secondary" />
           </IconButton>
         }

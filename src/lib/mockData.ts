@@ -39,9 +39,9 @@ const CONV_NOA = 'c_noa';
 const CONV_KWAME = 'c_kwame';
 
 export const conversations: Conversation[] = [
-  { id: CONV_IMANI, kind: 'direct', participantIds: [me.id, imani.id], lastMessagePreview: 'Sending the files now. All encrypted.', lastMessageAt: iso(3 * MIN), unreadCount: 2, pinned: true, muted: false, encrypted: true },
+  { id: CONV_IMANI, kind: 'direct', participantIds: [me.id, imani.id], lastMessagePreview: 'Sending the files now. All encrypted.', lastMessageAt: iso(3 * MIN), unreadCount: 2, pinned: true, muted: false, encrypted: true, verified: true },
   { id: CONV_DESK, kind: 'group', title: 'The Desk', participantIds: [me.id, imani.id, priya.id, lin.id], lastMessagePreview: 'Priya: pushed the draft, take a look', lastMessageAt: iso(22 * MIN), unreadCount: 5, pinned: true, muted: false, encrypted: true },
-  { id: CONV_PRIYA, kind: 'direct', participantIds: [me.id, priya.id], lastMessagePreview: 'You: sounds good, talk tomorrow', lastMessageAt: iso(2 * HR), unreadCount: 0, pinned: false, muted: false, encrypted: true },
+  { id: CONV_PRIYA, kind: 'direct', participantIds: [me.id, priya.id], lastMessagePreview: 'You: sounds good, talk tomorrow', lastMessageAt: iso(2 * HR), unreadCount: 0, pinned: false, muted: false, encrypted: true, verified: true },
   { id: CONV_MATEO, kind: 'direct', participantIds: [me.id, mateo.id], lastMessagePreview: 'Voice message', lastMessageAt: iso(6 * HR), unreadCount: 0, pinned: false, muted: false, encrypted: true },
   { id: CONV_NOA, kind: 'direct', participantIds: [me.id, noa.id], lastMessagePreview: 'Photo', lastMessageAt: iso(1 * DAY), unreadCount: 0, pinned: false, muted: true, encrypted: true },
   { id: CONV_KWAME, kind: 'direct', participantIds: [me.id, kwame.id], lastMessagePreview: 'Happy to help, whenever', lastMessageAt: iso(3 * DAY), unreadCount: 0, pinned: false, muted: false, encrypted: true, archived: true },

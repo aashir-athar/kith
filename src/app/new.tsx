@@ -23,7 +23,7 @@ import type { User } from '@/types/models';
 
 export default function NewChatScreen() {
   const theme = useTheme();
-  const conversations = useChatStore((s) => s.conversations);
+  const createDirect = useChatStore((s) => s.createDirect);
   const [query, setQuery] = useState('');
 
   const q = query.trim().toLowerCase();
@@ -32,15 +32,8 @@ export default function NewChatScreen() {
   );
 
   const openWith = (user: User) => {
-    const direct = conversations.find(
-      (c) => c.kind === 'direct' && c.participantIds.includes(user.id),
-    );
-    const found = direct ?? conversations.find((c) => c.participantIds.includes(user.id));
-    if (found) {
-      router.replace({ pathname: '/conversation/[id]', params: { id: found.id } });
-    } else {
-      router.back();
-    }
+    const id = createDirect(user.id);
+    router.replace({ pathname: '/conversation/[id]', params: { id } });
   };
 
   return (
@@ -69,7 +62,7 @@ export default function NewChatScreen() {
           keyExtractor={(item) => item.id}
           ListHeaderComponent={
             <View>
-              <SettingsRow icon={QrCode} label="Scan a code" />
+              <SettingsRow icon={QrCode} label="Scan a code" onPress={() => router.push('/scan')} />
               <SettingsRow icon={UserPlus} label="New group" onPress={() => router.push('/new-group')} />
               <SettingsRow
                 icon={Users}

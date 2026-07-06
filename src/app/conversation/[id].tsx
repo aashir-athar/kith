@@ -178,25 +178,25 @@ export default function ConversationScreen() {
           accessibilityLabel="Conversation info"
           onPress={() => router.push({ pathname: '/chat/[id]', params: { id: cid } })}
           style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: theme.space.sm }}>
-          <Avatar size={36} name={title} seed={cid} />
+          <Avatar size={36} name={title} seed={callTargetId} />
           <View style={{ flex: 1 }}>
             <Text variant="bodyStrong" numberOfLines={1}>
               {title}
             </Text>
-            <Text variant="caption" tone="secondary">
-              end-to-end encrypted
+            <Text variant="caption" tone={conversation?.verified ? 'secondary' : 'accent'}>
+              {conversation?.verified ? 'end-to-end encrypted' : 'tap to verify encryption'}
             </Text>
           </View>
         </Pressable>
 
         <IconButton
           accessibilityLabel="Start video call"
-          onPress={() => router.push({ pathname: '/call/[id]', params: { id: callTargetId } })}>
+          onPress={() => router.push({ pathname: '/call/[id]', params: { id: callTargetId, kind: 'video' } })}>
           <Icon icon={Video} tone="secondary" />
         </IconButton>
         <IconButton
           accessibilityLabel="Start voice call"
-          onPress={() => router.push({ pathname: '/call/[id]', params: { id: callTargetId } })}>
+          onPress={() => router.push({ pathname: '/call/[id]', params: { id: callTargetId, kind: 'audio' } })}>
           <Icon icon={Phone} tone="secondary" />
         </IconButton>
       </View>

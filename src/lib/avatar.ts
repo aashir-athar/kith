@@ -29,7 +29,12 @@ export function avatarGradient(seed: string): readonly [string, string] {
 
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) {
+    const word = parts[0] ?? '';
+    return (word.length >= 2 ? word.slice(0, 2) : word).toUpperCase();
+  }
   const first = parts[0]?.charAt(0) ?? '';
-  const last = parts.length > 1 ? (parts[parts.length - 1]?.charAt(0) ?? '') : '';
+  const last = parts[parts.length - 1]?.charAt(0) ?? '';
   return (first + last).toUpperCase();
 }
