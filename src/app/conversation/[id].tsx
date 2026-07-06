@@ -21,11 +21,14 @@ import { IconButton } from '@/components/ui/IconButton';
 import { MessageActionsSheet, type MessageAction } from '@/components/ui/MessageActionsSheet';
 import { StickerPicker } from '@/components/ui/StickerPicker';
 import { Text } from '@/components/ui/Text';
+import { dayLabel } from '@/lib/format';
 import { newId } from '@/lib/id';
 import { conversationPeer, conversationTitle, me, usersById } from '@/lib/mockData';
 import { useChatStore } from '@/stores/useChatStore';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { Message } from '@/types/models';
+
+type ThreadRow = { type: 'day'; label: string } | { type: 'msg'; message: Message };
 
 const KIND_PREVIEW: Record<string, string> = {
   image: 'Photo',
@@ -80,6 +83,17 @@ export default function ConversationScreen() {
 
   const title = conversation ? conversationTitle(conversation) : 'Conversation';
   const callTargetId = conversation ? (conversationPeer(conversation)?.id ?? cid) : cid;
+
+  const rows: ThreadRow[] = [];
+  let lastDay = '';
+  for (const m of messages) {
+    const day = dayLabel(m.createdAt);
+    if (day !== lastDay) {
+      rows.push({ type: 'day', label: day });
+      lastDay = day;
+    }
+    rows.push({ type: 'msg', message: m });
+  }
 
   const incoming = messages.filter((m) => m.senderId !== me.id);
   const lastIncoming = incoming[incoming.length - 1];
@@ -211,14 +225,33 @@ export default function ConversationScreen() {
             </View>
           ) : (
             <FlashList
-              data={messages}
-              keyExtractor={(item) => item.id}
+              data={rows}
+              keyExtractor={(item) => (item.type === 'day' ? `d:${item.label}` : item.message.id)}
+              getItemType={(item) => item.type}
               renderItem={({ item }) => {
-                const replied = item.replyToId ? messages.find((m) => m.id === item.replyToId) : undefined;
+                if (item.type === 'day') {
+                  return (
+                    <View style={{ alignItems: 'center', paddingVertical: theme.space.sm }}>
+                      <View
+                        style={{
+                          backgroundColor: theme.colors.surface,
+                          borderRadius: theme.radius.pill,
+                          paddingHorizontal: theme.space.md,
+                          paddingVertical: 4,
+                        }}>
+                        <Text variant="caption" tone="secondary">
+                          {item.label}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                }
+                const message = item.message;
+                const replied = message.replyToId ? messages.find((m) => m.id === message.replyToId) : undefined;
                 const replyPreview = replied ? { author: authorName(replied), text: previewText(replied) } : undefined;
                 return (
-                  <Pressable onLongPress={() => setSelected(item)} delayLongPress={220}>
-                    <ChatBubble message={item} mine={item.senderId === me.id} replyPreview={replyPreview} />
+                  <Pressable onLongPress={() => setSelected(message)} delayLongPress={220}>
+                    <ChatBubble message={message} mine={message.senderId === me.id} replyPreview={replyPreview} />
                   </Pressable>
                 );
               }}

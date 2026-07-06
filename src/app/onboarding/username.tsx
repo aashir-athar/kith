@@ -7,6 +7,7 @@ import { TextInput, View } from 'react-native';
 import { BackHeader } from '@/components/layout/BackHeader';
 import { Screen } from '@/components/layout/Screen';
 import { Button } from '@/components/ui/Button';
+import { OnboardingSteps } from '@/components/ui/OnboardingSteps';
 import { Surface } from '@/components/ui/Surface';
 import { Text } from '@/components/ui/Text';
 import { useSessionStore } from '@/stores/useSessionStore';
@@ -22,6 +23,7 @@ export default function UsernameScreen() {
   return (
     <Screen edges={['top']}>
       <BackHeader />
+      <OnboardingSteps current={1} />
       <View style={{ flex: 1, paddingHorizontal: theme.space.xl, gap: theme.space.lg }}>
         <View style={{ gap: theme.space.sm }}>
           <Text variant="displayLg">Choose a username</Text>
@@ -30,25 +32,29 @@ export default function UsernameScreen() {
           </Text>
         </View>
 
-        <Surface
-          variant="flat"
-          style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs, paddingHorizontal: theme.space.lg, height: 56 }}>
-          <Text variant="headline" tone="tertiary">@</Text>
-          <TextInput
-            value={value}
-            onChangeText={(t) => setValue(t.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoFocus
-            placeholder="username"
-            placeholderTextColor={theme.colors.inkTertiary}
-            style={{ flex: 1, color: theme.colors.ink, fontFamily: fontFamily.body, fontSize: 17 }}
-          />
-        </Surface>
-
-        <Text variant="footnote" tone={valid ? 'success' : 'tertiary'}>
-          {valid ? 'Looks available' : '3 or more characters: letters, numbers, and underscores'}
-        </Text>
+        <View style={{ gap: theme.space.xs }}>
+          <Text variant="caption" tone="secondary" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>
+            Username
+          </Text>
+          <Surface
+            variant="flat"
+            style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs, paddingHorizontal: theme.space.lg, height: 56 }}>
+            <Text variant="headline" tone="secondary">@</Text>
+            <TextInput
+              value={value}
+              onChangeText={(t) => setValue(t.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus
+              placeholder="username"
+              placeholderTextColor={theme.colors.inkTertiary}
+              style={{ flex: 1, color: theme.colors.ink, fontFamily: fontFamily.body, fontSize: 17 }}
+            />
+          </Surface>
+          <Text variant="footnote" tone={valid ? 'success' : 'tertiary'}>
+            {valid ? 'Length looks good' : '3 or more characters: letters, numbers, and underscores'}
+          </Text>
+        </View>
 
         <View style={{ flex: 1 }} />
         <Button

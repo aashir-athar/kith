@@ -10,6 +10,7 @@ import { BackHeader } from '@/components/layout/BackHeader';
 import { Screen } from '@/components/layout/Screen';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
+import { OnboardingSteps } from '@/components/ui/OnboardingSteps';
 import { Text } from '@/components/ui/Text';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -64,6 +65,7 @@ export default function RecoveryScreen() {
   return (
     <Screen edges={['top']}>
       <BackHeader />
+      <OnboardingSteps current={2} />
       <View style={{ flex: 1, paddingHorizontal: theme.space.xl, gap: theme.space.lg }}>
         <View style={{ gap: theme.space.sm }}>
           <Text variant="displayLg">Secure your account</Text>

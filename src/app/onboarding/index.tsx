@@ -6,6 +6,7 @@ import { View } from 'react-native';
 
 import { Screen } from '@/components/layout/Screen';
 import { Button } from '@/components/ui/Button';
+import { OnboardingSteps } from '@/components/ui/OnboardingSteps';
 import { Text } from '@/components/ui/Text';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -26,9 +27,10 @@ export default function WelcomeScreen() {
           </Text>
         </View>
 
-        <View style={{ gap: theme.space.sm }}>
+        <View style={{ gap: theme.space.md }}>
+          <OnboardingSteps current={0} />
           <Button label="Create my account" variant="primary" fullWidth onPress={() => router.push('/onboarding/username')} />
-          <Button label="I already have an account" variant="ghost" fullWidth onPress={() => router.replace('/')} />
+          <Button label="I already have an account" variant="secondary" fullWidth onPress={() => router.replace('/')} />
         </View>
       </View>
     </Screen>
