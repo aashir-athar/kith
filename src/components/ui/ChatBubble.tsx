@@ -4,7 +4,7 @@
 
 import { Forward, Flame, Heart, Laugh, type LucideIcon, Star, ThumbsUp } from 'lucide-react-native';
 import { type ReactNode } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { DocumentMessage } from '@/components/message/DocumentMessage';
 import { LocationMessage } from '@/components/message/LocationMessage';
@@ -30,10 +30,11 @@ export interface ChatBubbleProps {
   message: Message;
   mine: boolean;
   replyPreview?: { author: string; text: string };
+  author?: { name: string; color: string };
   onRetry?: () => void;
 }
 
-export function ChatBubble({ message, mine, replyPreview, onRetry }: ChatBubbleProps) {
+export function ChatBubble({ message, mine, replyPreview, author, onRetry }: ChatBubbleProps) {
   const theme = useTheme();
   const hasReactions = !!message.reactions && message.reactions.length > 0;
 
@@ -81,10 +82,21 @@ export function ChatBubble({ message, mine, replyPreview, onRetry }: ChatBubbleP
           borderRadius: 18,
           borderBottomRightRadius: mine ? 6 : 18,
           borderBottomLeftRadius: mine ? 18 : 6,
+          borderWidth: mine ? 0 : StyleSheet.hairlineWidth,
+          borderColor: theme.colors.hairline,
           paddingHorizontal: theme.space.lg,
           paddingVertical: theme.space.sm,
           gap: theme.space.xxs,
         }}>
+        {author ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xxs }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: author.color }} />
+            <Text variant="caption" tone="secondary">
+              {author.name}
+            </Text>
+          </View>
+        ) : null}
+
         {message.forwardedFrom ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xxs }}>
             <Icon icon={Forward} size={12} tone="tertiary" />

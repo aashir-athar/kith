@@ -1,11 +1,12 @@
-// Lever: safety cue. The call log leads with the encryption promise, and every entry is a
-// one-tap redial. Coral stays out of the way here: with a call button on every row, accent
-// would stop being a signal, so the actions read as quiet surface controls instead.
+// Call log. Grouped by day, filterable to Missed, and every row is tappable to the thread with
+// a one-tap redial on the right. Call type is shown once, by the redial control; the row body
+// carries direction and time. Coral stays out of the way here.
 
+import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Video } from 'lucide-react-native';
+import { useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
 
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { Header } from '@/components/layout/Header';
@@ -13,8 +14,10 @@ import { Screen } from '@/components/layout/Screen';
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/IconButton';
+import { ListSectionLabel } from '@/components/ui/ListSectionLabel';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { Text } from '@/components/ui/Text';
-import { relativeTime } from '@/lib/format';
+import { dayLabel, relativeTime } from '@/lib/format';
 import { calls, usersById } from '@/lib/mockData';
 import { useChatStore } from '@/stores/useChatStore';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -33,7 +36,6 @@ function CallRow({ call }: { call: CallRecord }) {
   const name = peer?.displayName ?? 'Unknown';
   const missed = call.direction === 'missed';
   const isVideo = call.kind === 'video';
-  const kindLabel = isVideo ? 'Video' : 'Audio';
   const DirIcon = directionIcon(call.direction);
 
   return (
@@ -59,7 +61,8 @@ function CallRow({ call }: { call: CallRecord }) {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs }}>
           <Icon icon={DirIcon} size={14} tone={missed ? 'danger' : 'secondary'} />
           <Text variant="footnote" tone={missed ? 'danger' : 'secondary'} numberOfLines={1}>
-            {missed ? 'Missed' : kindLabel} · {relativeTime(call.startedAt)}
+            {missed ? 'Missed · ' : ''}
+            {relativeTime(call.startedAt)}
           </Text>
         </View>
       </View>
@@ -74,35 +77,62 @@ function CallRow({ call }: { call: CallRecord }) {
   );
 }
 
+type CallListRow = { type: 'day'; label: string } | { type: 'call'; call: CallRecord };
+
+type CallFilter = 'all' | 'missed';
+
+const FILTERS: readonly { label: string; value: CallFilter }[] = [
+  { label: 'All', value: 'all' },
+  { label: 'Missed', value: 'missed' },
+];
+
 export default function CallsScreen() {
   const theme = useTheme();
+  const [filter, setFilter] = useState<CallFilter>('all');
+
+  const visible = filter === 'missed' ? calls.filter((c) => c.direction === 'missed') : calls;
+
+  const rows: CallListRow[] = [];
+  let lastDay = '';
+  for (const call of visible) {
+    const day = dayLabel(call.startedAt);
+    if (day !== lastDay) {
+      rows.push({ type: 'day', label: day });
+      lastDay = day;
+    }
+    rows.push({ type: 'call', call });
+  }
 
   return (
     <Screen>
       <Header
         title="Calls"
-        subtitle="Recents"
         right={
           <IconButton accessibilityLabel="New call" onPress={() => router.push('/new')}>
             <Icon icon={Phone} tone="secondary" />
           </IconButton>
         }
       />
-      {calls.length === 0 ? (
+      <View style={{ paddingHorizontal: theme.space.xl, paddingBottom: theme.space.sm }}>
+        <SegmentedControl options={FILTERS} value={filter} onChange={setFilter} />
+      </View>
+      {rows.length === 0 ? (
         <EmptyState
-          title="No calls yet"
-          body="Call anyone from a chat. Voice and video, encrypted the whole way through."
+          title={filter === 'missed' ? 'No missed calls' : 'No calls yet'}
+          body={
+            filter === 'missed'
+              ? 'Missed calls collect here so you can catch up in one place.'
+              : 'Call anyone from a chat. Voice and video, encrypted the whole way through.'
+          }
         />
       ) : (
         <View style={{ flex: 1 }}>
           <FlashList
-            data={calls}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <CallRow call={item} />}
-            contentContainerStyle={{
-              paddingTop: theme.space.xs,
-              paddingBottom: theme.space['5xl'],
-            }}
+            data={rows}
+            keyExtractor={(item) => (item.type === 'day' ? 'd:' + item.label : 'c:' + item.call.id)}
+            getItemType={(item) => item.type}
+            renderItem={({ item }) => (item.type === 'day' ? <ListSectionLabel label={item.label} /> : <CallRow call={item.call} />)}
+            contentContainerStyle={{ paddingTop: theme.space.xs, paddingBottom: theme.space['5xl'] }}
           />
         </View>
       )}

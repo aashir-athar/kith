@@ -21,6 +21,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { MessageActionsSheet, type MessageAction } from '@/components/ui/MessageActionsSheet';
 import { StickerPicker } from '@/components/ui/StickerPicker';
 import { Text } from '@/components/ui/Text';
+import { avatarGradient } from '@/lib/avatar';
 import { dayLabel } from '@/lib/format';
 import { newId } from '@/lib/id';
 import { conversationPeer, conversationTitle, me, usersById } from '@/lib/mockData';
@@ -28,7 +29,7 @@ import { useChatStore } from '@/stores/useChatStore';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { Message } from '@/types/models';
 
-type ThreadRow = { type: 'day'; label: string } | { type: 'msg'; message: Message };
+type ThreadRow = { type: 'day'; label: string } | { type: 'msg'; message: Message; firstOfRun: boolean };
 
 const KIND_PREVIEW: Record<string, string> = {
   image: 'Photo',
@@ -87,13 +88,16 @@ export default function ConversationScreen() {
 
   const rows: ThreadRow[] = [];
   let lastDay = '';
+  let prevSender = '';
   for (const m of messages) {
     const day = dayLabel(m.createdAt);
     if (day !== lastDay) {
       rows.push({ type: 'day', label: day });
       lastDay = day;
+      prevSender = '';
     }
-    rows.push({ type: 'msg', message: m });
+    rows.push({ type: 'msg', message: m, firstOfRun: m.senderId !== prevSender });
+    prevSender = m.senderId;
   }
 
   const incoming = messages.filter((m) => m.senderId !== me.id);
@@ -248,14 +252,21 @@ export default function ConversationScreen() {
                   );
                 }
                 const message = item.message;
+                const mine = message.senderId === me.id;
                 const replied = message.replyToId ? messages.find((m) => m.id === message.replyToId) : undefined;
                 const replyPreview = replied ? { author: authorName(replied), text: previewText(replied) } : undefined;
+                const sender = usersById[message.senderId];
+                const author =
+                  conversation?.kind === 'group' && !mine && item.firstOfRun && sender
+                    ? { name: sender.displayName, color: avatarGradient(sender.id)[0] }
+                    : undefined;
                 return (
                   <Pressable onLongPress={() => setSelected(message)} delayLongPress={220}>
                     <ChatBubble
                       message={message}
-                      mine={message.senderId === me.id}
+                      mine={mine}
                       replyPreview={replyPreview}
+                      author={author}
                       onRetry={() => retryMessage(cid, message.id)}
                     />
                   </Pressable>
