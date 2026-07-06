@@ -1,0 +1,36 @@
+{
+  "name": "kith-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test src/**/*.test.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.0.8",
+    "@kith/shared": "file:../shared",
+    "@noble/ciphers": "^2.0.0",
+    "@noble/curves": "2.2.0",
+    "@noble/hashes": "^2.0.0",
+    "dotenv": "^17.0.0",
+    "drizzle-orm": "0.45.2",
+    "hono": "4.12.28",
+    "ioredis": "5.11.1",
+    "postgres": "3.4.9",
+    "ws": "8.21.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.5.0",
+    "drizzle-kit": "0.31.10",
+    "tsx": "^4.19.0",
+    "typescript": "^6.0.0"
+  }
+}

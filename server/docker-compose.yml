@@ -1,0 +1,50 @@
+# Local Kith backend. `docker compose up` brings up Postgres 16, Redis 7, and the relay.
+# Build context is the repo root (..) so the image can copy the sibling ../shared package.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: kith
+      POSTGRES_PASSWORD: kith
+      POSTGRES_DB: kith
+    ports:
+      - '5432:5432'
+    volumes:
+      - kith_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U kith']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: 8787
+      DATABASE_URL: postgres://kith:kith@postgres:5432/kith
+      REDIS_URL: redis://redis:6379
+      SESSION_SECRET: dev-only-change-me
+      NODE_ENV: development
+    ports:
+      - '8787:8787'
+
+volumes:
+  kith_pg:
