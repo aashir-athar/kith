@@ -1,10 +1,16 @@
-// Message bubble. Outgoing and incoming are BOTH neutral surfaces (coral is never a bubble
-// fill, it is a signal only); the sender side is distinguished by alignment, a flattened
-// tail corner, and one elevation step. Read receipt is the single accent touch.
+// Message bubble. Dispatches content by kind (text, image, voice, document, location, poll),
+// keeps both sides on neutral surfaces (coral is never a bubble fill), and shows forwarded,
+// edited, starred, time, delivery, and reactions.
 
-import { Flame, Heart, Laugh, type LucideIcon, ThumbsUp } from 'lucide-react-native';
+import { Forward, Flame, Heart, Laugh, type LucideIcon, Star, ThumbsUp } from 'lucide-react-native';
+import { type ReactNode } from 'react';
 import { View } from 'react-native';
 
+import { DocumentMessage } from '@/components/message/DocumentMessage';
+import { LocationMessage } from '@/components/message/LocationMessage';
+import { MediaMessage } from '@/components/message/MediaMessage';
+import { PollMessage } from '@/components/message/PollMessage';
+import { VoiceMessage } from '@/components/message/VoiceMessage';
 import { Icon } from '@/components/ui/Icon';
 import { MessageStatus } from '@/components/ui/MessageStatus';
 import { Text } from '@/components/ui/Text';
@@ -29,6 +35,39 @@ export function ChatBubble({ message, mine, replyPreview }: ChatBubbleProps) {
   const theme = useTheme();
   const hasReactions = !!message.reactions && message.reactions.length > 0;
 
+  let content: ReactNode;
+  switch (message.kind) {
+    case 'image':
+      content = <MediaMessage message={message} />;
+      break;
+    case 'voice':
+      content = <VoiceMessage message={message} mine={mine} />;
+      break;
+    case 'document':
+      content = <DocumentMessage message={message} />;
+      break;
+    case 'location':
+      content = <LocationMessage message={message} />;
+      break;
+    case 'poll':
+      content = <PollMessage message={message} />;
+      break;
+    case 'contact':
+      content = (
+        <View style={{ minWidth: 180, gap: 2 }}>
+          <Text variant="bodyStrong">{message.contactName ?? 'Contact'}</Text>
+          {message.contactUsername ? (
+            <Text variant="footnote" tone="secondary">
+              @{message.contactUsername}
+            </Text>
+          ) : null}
+        </View>
+      );
+      break;
+    default:
+      content = message.text ? <Text variant="body">{message.text}</Text> : null;
+  }
+
   return (
     <View style={{ maxWidth: '82%', alignSelf: mine ? 'flex-end' : 'flex-start', marginVertical: theme.space.xxs }}>
       <View
@@ -41,6 +80,15 @@ export function ChatBubble({ message, mine, replyPreview }: ChatBubbleProps) {
           paddingVertical: theme.space.sm,
           gap: theme.space.xxs,
         }}>
+        {message.forwardedFrom ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xxs }}>
+            <Icon icon={Forward} size={12} tone="tertiary" />
+            <Text variant="caption" tone="tertiary">
+              Forwarded
+            </Text>
+          </View>
+        ) : null}
+
         {replyPreview ? (
           <View style={{ borderLeftWidth: 2, borderLeftColor: theme.colors.accent, paddingLeft: theme.space.sm, marginBottom: theme.space.xxs }}>
             <Text variant="caption" tone="accent">
@@ -52,9 +100,10 @@ export function ChatBubble({ message, mine, replyPreview }: ChatBubbleProps) {
           </View>
         ) : null}
 
-        {message.text ? <Text variant="body">{message.text}</Text> : null}
+        {content}
 
         <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', gap: theme.space.xs }}>
+          {message.starred ? <Icon icon={Star} size={12} tone="accent" /> : null}
           {message.editedAt ? (
             <Text variant="caption" tone="tertiary">
               edited

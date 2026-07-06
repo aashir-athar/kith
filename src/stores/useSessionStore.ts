@@ -11,6 +11,8 @@ interface SessionState {
   onboarded: boolean;
   setUsername: (username: string) => void;
   setDisplayName: (displayName: string) => void;
+  setBio: (bio: string) => void;
+  setAvatarUrl: (avatarUrl: string | undefined) => void;
   completeOnboarding: () => void;
 }
 
@@ -19,5 +21,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   onboarded: true,
   setUsername: (username) => set((state) => ({ currentUser: { ...state.currentUser, username } })),
   setDisplayName: (displayName) => set((state) => ({ currentUser: { ...state.currentUser, displayName } })),
+  setBio: (bio) => set((state) => ({ currentUser: { ...state.currentUser, bio } })),
+  setAvatarUrl: (avatarUrl) => set((state) => ({ currentUser: { ...state.currentUser, avatarUrl } })),
   completeOnboarding: () => set({ onboarded: true }),
 }));

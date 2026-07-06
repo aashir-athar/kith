@@ -37,6 +37,7 @@ function RootNavigator() {
         <Stack.Screen name="settings" />
         <Stack.Screen name="conversation/[id]" />
         <Stack.Screen name="community/[id]" />
+        <Stack.Screen name="chat/[id]" />
         <Stack.Screen name="new" options={{ presentation: 'modal' }} />
         <Stack.Screen name="search" options={{ presentation: 'modal' }} />
         <Stack.Screen name="call/[id]" options={{ presentation: 'fullScreenModal' }} />

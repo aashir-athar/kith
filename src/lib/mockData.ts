@@ -1,7 +1,7 @@
 // Seed data for the frontend-first build. Stands in for the crypto core + backend so every
 // screen is real and navigable. Names and content are deliberately varied and human.
 
-import type { CallRecord, Community, Conversation, Message, User } from '@/types/models';
+import type { CallRecord, Community, Conversation, Message, StatusFeed, Story, User } from '@/types/models';
 
 const now = Date.now();
 const MIN = 60_000;
@@ -61,6 +61,7 @@ export const messagesByConversation: Record<string, Message[]> = {
     { id: 'd2', conversationId: CONV_DESK, senderId: priya.id, kind: 'text', text: 'Second pass done. Cutting 200 words.', createdAt: iso(2 * HR), status: 'read' },
     { id: 'd3', conversationId: CONV_DESK, senderId: me.id, kind: 'text', text: 'I can fact-check the timeline this afternoon.', createdAt: iso(90 * MIN), status: 'read' },
     { id: 'd4', conversationId: CONV_DESK, senderId: priya.id, kind: 'text', text: 'pushed the draft, take a look', createdAt: iso(22 * MIN), status: 'delivered' },
+    { id: 'd5', conversationId: CONV_DESK, senderId: lin.id, kind: 'poll', createdAt: iso(18 * MIN), status: 'delivered', poll: { question: 'Publish time?', multiple: false, totalVotes: 3, options: [{ id: 'o1', label: 'Tonight', votes: 2 }, { id: 'o2', label: 'Tomorrow morning', votes: 1 }, { id: 'o3', label: 'Hold for legal', votes: 0 }] } },
   ],
   [CONV_PRIYA]: [
     { id: 'p1', conversationId: CONV_PRIYA, senderId: priya.id, kind: 'text', text: 'Are we still on for the call tomorrow?', createdAt: iso(3 * HR), status: 'read' },
@@ -68,6 +69,13 @@ export const messagesByConversation: Record<string, Message[]> = {
   ],
   [CONV_KWAME]: [
     { id: 'k1', conversationId: CONV_KWAME, senderId: kwame.id, kind: 'text', text: 'Happy to help, whenever', createdAt: iso(3 * DAY), status: 'read' },
+  ],
+  [CONV_MATEO]: [
+    { id: 'ma1', conversationId: CONV_MATEO, senderId: mateo.id, kind: 'text', text: 'Sent you the spot for tomorrow', createdAt: iso(7 * HR), status: 'read' },
+    { id: 'ma2', conversationId: CONV_MATEO, senderId: mateo.id, kind: 'location', latitude: 51.5079, longitude: -0.0877, locationLabel: 'London Bridge', createdAt: iso(7 * HR), status: 'read' },
+    { id: 'ma3', conversationId: CONV_MATEO, senderId: me.id, kind: 'image', mediaUrl: 'la3', createdAt: iso(6 * HR + 30 * MIN), status: 'read' },
+    { id: 'ma4', conversationId: CONV_MATEO, senderId: mateo.id, kind: 'document', fileName: 'Field-notes.pdf', fileSize: '2.4 MB', createdAt: iso(6 * HR + 12 * MIN), status: 'read' },
+    { id: 'ma5', conversationId: CONV_MATEO, senderId: mateo.id, kind: 'voice', durationSec: 34, createdAt: iso(6 * HR), status: 'delivered' },
   ],
 };
 
@@ -114,3 +122,33 @@ export function conversationPeer(conversation: Conversation): User | undefined {
   const otherId = conversation.participantIds.find((pid) => pid !== me.id);
   return otherId ? usersById[otherId] : undefined;
 }
+
+export const myStories: Story[] = [
+  { id: 's_me1', authorId: me.id, kind: 'text', text: 'Shipping something new soon.', background: '#221F26', createdAt: iso(2 * HR) },
+];
+
+export const statusFeeds: StatusFeed[] = [
+  {
+    authorId: imani.id,
+    hasUnseen: true,
+    stories: [
+      { id: 'st_im1', authorId: imani.id, kind: 'image', mediaUrl: 'imani-1', createdAt: iso(1 * HR) },
+      { id: 'st_im2', authorId: imani.id, kind: 'text', text: 'Story time. Off the record.', background: '#1E2740', createdAt: iso(40 * MIN) },
+    ],
+  },
+  {
+    authorId: priya.id,
+    hasUnseen: true,
+    stories: [{ id: 'st_pr1', authorId: priya.id, kind: 'image', mediaUrl: 'priya-1', createdAt: iso(3 * HR) }],
+  },
+  {
+    authorId: lin.id,
+    hasUnseen: false,
+    stories: [{ id: 'st_lin1', authorId: lin.id, kind: 'image', mediaUrl: 'lin-1', createdAt: iso(9 * HR) }],
+  },
+  {
+    authorId: kwame.id,
+    hasUnseen: false,
+    stories: [{ id: 'st_kw1', authorId: kwame.id, kind: 'text', text: 'Grateful today.', background: '#33401E', createdAt: iso(10 * HR) }],
+  },
+];

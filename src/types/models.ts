@@ -17,7 +17,30 @@ export type Presence = 'online' | 'recently' | 'offline';
 
 export type DeliveryStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
-export type MessageKind = 'text' | 'image' | 'voice' | 'system';
+export type MessageKind =
+  | 'text'
+  | 'image'
+  | 'voice'
+  | 'document'
+  | 'location'
+  | 'contact'
+  | 'poll'
+  | 'sticker'
+  | 'system';
+
+export interface PollOption {
+  id: ID;
+  label: string;
+  votes: number;
+}
+
+export interface Poll {
+  question: string;
+  options: PollOption[];
+  multiple: boolean;
+  totalVotes: number;
+  votedOptionId?: ID;
+}
 
 export interface Reaction {
   key: string;
@@ -37,6 +60,36 @@ export interface Message {
   replyToId?: ID;
   reactions?: Reaction[];
   editedAt?: ISO;
+  fileName?: string;
+  fileSize?: string;
+  latitude?: number;
+  longitude?: number;
+  locationLabel?: string;
+  contactName?: string;
+  contactUsername?: string;
+  stickerId?: string;
+  poll?: Poll;
+  forwardedFrom?: string;
+  starred?: boolean;
+  pinned?: boolean;
+}
+
+export type StoryKind = 'image' | 'text';
+
+export interface Story {
+  id: ID;
+  authorId: ID;
+  kind: StoryKind;
+  mediaUrl?: string;
+  text?: string;
+  background?: string;
+  createdAt: ISO;
+}
+
+export interface StatusFeed {
+  authorId: ID;
+  stories: Story[];
+  hasUnseen: boolean;
 }
 
 export type ConversationKind = 'direct' | 'group';

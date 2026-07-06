@@ -3,12 +3,13 @@
 
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import { Bell, ShieldCheck, UserPlus } from 'lucide-react-native';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Bell, ChevronRight, ShieldCheck, UserPlus } from 'lucide-react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Header } from '@/components/layout/Header';
 import { Screen } from '@/components/layout/Screen';
 import { Avatar } from '@/components/ui/Avatar';
+import { Icon } from '@/components/ui/Icon';
 import { SegmentedControl, type SegmentOption } from '@/components/ui/SegmentedControl';
 import { SettingsRow } from '@/components/ui/SettingsRow';
 import { Surface } from '@/components/ui/Surface';
@@ -39,7 +40,11 @@ export default function YouScreen() {
           paddingBottom: theme.space['6xl'],
           gap: theme.space.xl,
         }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.lg }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Edit profile"
+          onPress={() => router.push('/settings/profile')}
+          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: theme.space.lg, opacity: pressed ? 0.7 : 1 })}>
           <Avatar name={user.displayName} seed={user.id} url={user.avatarUrl} size={64} />
           <View style={{ flex: 1 }}>
             <Text variant="title" numberOfLines={1}>
@@ -49,7 +54,8 @@ export default function YouScreen() {
               @{user.username}
             </Text>
           </View>
-        </View>
+          <Icon icon={ChevronRight} size={20} tone="tertiary" />
+        </Pressable>
 
         <View style={{ gap: theme.space.sm }}>
           <Text variant="caption" tone="secondary" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>
