@@ -17,6 +17,7 @@ import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/IconButton';
 import { ListSectionLabel } from '@/components/ui/ListSectionLabel';
 import { SearchField } from '@/components/ui/SearchField';
+import { StoryStrip } from '@/components/ui/StoryStrip';
 import { conversationTitle } from '@/lib/mockData';
 import { useChatStore } from '@/stores/useChatStore';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -72,6 +73,8 @@ export default function ChatsScreen() {
       <View style={{ paddingHorizontal: theme.space.xl, paddingBottom: theme.space.sm }}>
         <SearchField value={query} onChangeText={setQuery} placeholder="Search chats" />
       </View>
+
+      <StoryStrip />
 
       {filtered.length === 0 ? (
         <EmptyState
