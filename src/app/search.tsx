@@ -2,7 +2,7 @@
 // people, chats, and communities. Presented modally.
 
 import { router } from 'expo-router';
-import { Search } from 'lucide-react-native';
+import { Clock, Search } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
@@ -22,7 +22,13 @@ export default function SearchScreen() {
   const conversations = useChatStore((s) => s.conversations);
   const communities = useCommunityStore((s) => s.communities);
   const [query, setQuery] = useState('');
+  const [recents, setRecents] = useState<string[]>(['Frontline Press']);
   const q = query.trim().toLowerCase();
+
+  const run = (s: string) => {
+    setQuery(s);
+    setRecents((r) => [s, ...r.filter((x) => x !== s)].slice(0, 5));
+  };
 
   const suggestions = [communities[0]?.name, users[0]?.displayName, users[1]?.displayName].filter(
     (s): s is string => !!s,
@@ -45,7 +51,12 @@ export default function SearchScreen() {
         <View style={{ flex: 1 }}>
           <SearchField value={query} onChangeText={setQuery} autoFocus placeholder="Search Kith" />
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Cancel" onPress={() => router.back()}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Cancel"
+          hitSlop={theme.hitSlop}
+          onPress={() => router.back()}
+          style={{ minHeight: 44, justifyContent: 'center' }}>
           <Text variant="callout" tone="accent">
             Cancel
           </Text>
@@ -55,20 +66,52 @@ export default function SearchScreen() {
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: theme.space['6xl'] }}>
         {q.length === 0 ? (
           <>
+            {recents.length > 0 ? (
+              <>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingHorizontal: theme.space.xl,
+                    paddingTop: theme.space.lg,
+                    paddingBottom: theme.space.xs,
+                  }}>
+                  <Text variant="caption" tone="tertiary" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>
+                    Recent
+                  </Text>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Clear recent searches" hitSlop={theme.hitSlop} onPress={() => setRecents([])}>
+                    <Text variant="caption" tone="secondary">
+                      Clear
+                    </Text>
+                  </Pressable>
+                </View>
+                {recents.map((s) => (
+                  <Pressable key={'r:' + s} accessibilityRole="button" accessibilityLabel={`Search ${s}`} onPress={() => run(s)} style={rowStyle}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.md }}>
+                      <Icon icon={Clock} size={18} tone="tertiary" />
+                      <Text variant="body">{s}</Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </>
+            ) : null}
+
             <ListSectionLabel label="Try searching" />
             {suggestions.map((s) => (
-              <Pressable
-                key={s}
-                accessibilityRole="button"
-                accessibilityLabel={`Search ${s}`}
-                onPress={() => setQuery(s)}
-                style={rowStyle}>
+              <Pressable key={s} accessibilityRole="button" accessibilityLabel={`Search ${s}`} onPress={() => run(s)} style={rowStyle}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.md }}>
                   <Icon icon={Search} size={18} tone="tertiary" />
                   <Text variant="body">{s}</Text>
                 </View>
               </Pressable>
             ))}
+
+            <View style={{ paddingHorizontal: theme.space.xl, paddingTop: theme.space.lg }}>
+              <Text variant="footnote" tone="tertiary">
+                Semantic search looks across people, chats, communities, and the message text you can decrypt on this device.
+              </Text>
+            </View>
           </>
         ) : null}
 

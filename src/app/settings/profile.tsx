@@ -101,6 +101,11 @@ export default function EditProfileScreen() {
               </Text>
             </Pressable>
           ) : null}
+          <Pressable accessibilityRole="button" accessibilityLabel="Show my code" hitSlop={theme.hitSlop} onPress={() => router.push('/my-code')}>
+            <Text variant="footnote" tone="accent">
+              Show my code
+            </Text>
+          </Pressable>
         </View>
 
         <View style={{ gap: theme.space.md }}>

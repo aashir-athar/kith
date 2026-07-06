@@ -46,6 +46,7 @@ function RootNavigator() {
         <Stack.Screen name="new-community" options={{ presentation: 'modal' }} />
         <Stack.Screen name="search" options={{ presentation: 'modal' }} />
         <Stack.Screen name="security-explainer" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="my-code" options={{ presentation: 'modal' }} />
         <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
         <Stack.Screen name="recovery-pin" options={{ presentation: 'modal' }} />
         <Stack.Screen name="recovery-phrase" options={{ presentation: 'modal' }} />

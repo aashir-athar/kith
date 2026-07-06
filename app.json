@@ -33,7 +33,13 @@
           "imageWidth": 76
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Kith uses the camera to scan a person's code and add them in person. The camera runs on device."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
