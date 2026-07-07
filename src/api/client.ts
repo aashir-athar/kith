@@ -1,7 +1,7 @@
 // REST client for the Kith relay. Base URL comes from EXPO_PUBLIC_API_URL (set per environment:
 // a LAN IP for a real device, 10.0.2.2 for the Android emulator, localhost for iOS simulator).
 
-import type { MessageEnvelope, PreKeyBundle, RegisterRequest, SessionResponse } from '@kith/shared';
+import type { ConversationSummary, MessageDTO, PreKeyBundle, RegisterRequest, SessionResponse, UserPublic } from '@kith/shared';
 
 const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8787';
 
@@ -21,15 +21,6 @@ async function get<T>(path: string, token: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-export interface ServerMessage {
-  id: string;
-  conversationId: string;
-  seq: number;
-  senderId: string;
-  envelope: MessageEnvelope;
-  createdAt: number;
-}
-
 export interface DirectConversation {
   id: string;
   kind: string;
@@ -46,6 +37,9 @@ export const api = {
     post<{ ok: boolean }>('/keys/replenish', { oneTimePreKeys }, token),
   ticket: (token: string) => post<{ ticket: string; expiresAt: number }>('/rt/ticket', {}, token),
   createDirect: (token: string, username: string) => post<DirectConversation>('/conversations/direct', { username }, token),
+  listConversations: (token: string) => get<{ conversations: ConversationSummary[] }>('/conversations', token),
   history: (token: string, conversationId: string, before?: number) =>
-    get<{ messages: ServerMessage[] }>(`/conversations/${conversationId}/messages${before ? `?before=${before}` : ''}`, token),
+    get<{ messages: MessageDTO[] }>(`/conversations/${conversationId}/messages${before ? `?before=${before}` : ''}`, token),
+  user: (token: string, id: string) => get<UserPublic>(`/users/${encodeURIComponent(id)}`, token),
+  lookupUser: (token: string, username: string) => get<UserPublic>(`/users/lookup/${encodeURIComponent(username)}`, token),
 };

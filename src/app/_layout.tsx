@@ -3,7 +3,7 @@
 // so the first paint is already on-brand (no light-mode flash).
 
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -11,7 +11,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { queryClient } from '@/api/queryClient';
+import { BACKEND_ENABLED } from '@/net/config';
 import { MessagingProvider } from '@/net/MessagingProvider';
+import { useSessionStore } from '@/stores/useSessionStore';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { useAppFonts } from '@/theme/typography';
 
@@ -20,14 +22,20 @@ void SplashScreen.preventAutoHideAsync();
 function RootNavigator() {
   const theme = useTheme();
   const [fontsLoaded, fontError] = useAppFonts();
+  const onboarded = useSessionStore((s) => s.onboarded);
+  const sessionRestored = useSessionStore((s) => s.sessionRestored);
+
+  const ready = (fontsLoaded || fontError) && theme.ready && (!BACKEND_ENABLED || sessionRestored);
 
   useEffect(() => {
-    if ((fontsLoaded || fontError) && theme.ready) {
-      void SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, fontError, theme.ready]);
+    if (ready) void SplashScreen.hideAsync();
+  }, [ready]);
 
-  if (!fontsLoaded && !fontError) return null;
+  useEffect(() => {
+    if (ready && BACKEND_ENABLED && !onboarded) router.replace('/onboarding');
+  }, [ready, onboarded]);
+
+  if (!ready) return null;
 
   return (
     <>

@@ -64,6 +64,24 @@ export async function hasIdentity(): Promise<boolean> {
   return (await store.loadIdentity()) !== null;
 }
 
+export async function oneTimePreKeyCount(): Promise<number> {
+  return Object.keys(await store.loadOneTimePreKeys()).length;
+}
+
+/** Generate fresh one-time prekeys, persist their secrets, and return the publics to upload. */
+export async function replenishPreKeys(count: number): Promise<{ id: string; pub: string }[]> {
+  const existing = await store.loadOneTimePreKeys();
+  const fresh: { id: string; pub: string }[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const k = generateX25519(randomBytes);
+    const id = `o_${toHex(randomBytes(4))}`;
+    existing[id] = toHex(k.secret);
+    fresh.push({ id, pub: toHex(k.pub) });
+  }
+  await store.saveOneTimePreKeys(existing);
+  return fresh;
+}
+
 /** Sign the server's auth challenge with the Ed25519 identity key. */
 export async function signChallenge(challenge: string): Promise<string> {
   const identity = await store.loadIdentity();

@@ -31,6 +31,11 @@ export const usersById: Record<string, User> = Object.fromEntries(
   [me, ...users].map((u) => [u.id, u]),
 );
 
+/** Register a real (server-resolved) user so conversationPeer/usersById resolve it like a seed. */
+export function registerUser(user: User): void {
+  usersById[user.id] = user;
+}
+
 const CONV_IMANI = 'c_imani';
 const CONV_DESK = 'c_desk';
 const CONV_PRIYA = 'c_priya';

@@ -1,13 +1,26 @@
-// Bridges the messaging service to the stores. When a backend is configured, it restores the
-// saved session and, once a token exists, connects the socket and routes inbound frames into the
-// chat store. When no backend is configured it is inert, so the mock app runs untouched.
+// Bridges the messaging service to the stores. On a restored/new session it hydrates the chat
+// list from the server, tops up one-time prekeys if low, connects the socket, and routes inbound
+// frames (messages, receipts) into the chat store; on every (re)connect it resyncs missed
+// messages. Inert when no backend is configured, so the mock app runs untouched.
 
 import { type ReactNode, useEffect } from 'react';
 
+import { api } from '@/api/client';
+import { oneTimePreKeyCount, replenishPreKeys } from '@/crypto/e2e';
 import { BACKEND_ENABLED } from '@/net/config';
 import { messaging } from '@/net/messaging';
 import { useChatStore } from '@/stores/useChatStore';
 import { useSessionStore } from '@/stores/useSessionStore';
+
+async function topUpPreKeys(token: string): Promise<void> {
+  try {
+    if ((await oneTimePreKeyCount()) < 5) {
+      await api.replenish(token, await replenishPreKeys(20));
+    }
+  } catch {
+    // best-effort; the server degrades to opk=null when exhausted
+  }
+}
 
 export function MessagingProvider({ children }: { children: ReactNode }) {
   const token = useSessionStore((s) => s.serverToken);
@@ -19,11 +32,16 @@ export function MessagingProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!BACKEND_ENABLED || !token) return;
+    const chat = useChatStore.getState();
+    void chat.hydrateFromServer();
+    void topUpPreKeys(token);
     messaging.init(token, {
+      ensureConversation: (serverConvId, senderId) => useChatStore.getState().ensureServerConversation(serverConvId, senderId),
       onIncoming: (m) =>
         useChatStore.getState().receiveServerMessage({ serverConversationId: m.conversationId, seq: m.seq, senderId: m.senderId, text: m.text, createdAt: m.createdAt }),
       onSent: (a) => useChatStore.getState().applySentAck({ clientId: a.clientId, seq: a.seq, id: a.id }),
-      onReceipt: () => undefined,
+      onReceipt: (r) => useChatStore.getState().applyReceipt(r),
+      onConnect: () => useChatStore.getState().syncAll(),
     });
     return () => messaging.disconnect();
   }, [token]);

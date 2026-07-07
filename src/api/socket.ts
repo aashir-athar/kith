@@ -9,6 +9,7 @@ type Handler = (frame: ServerFrame) => void;
 export class KithSocket {
   private ws: WebSocket | null = null;
   private handlers = new Set<Handler>();
+  private openHandlers = new Set<() => void>();
   private closed = false;
   private backoff = 1000;
 
@@ -17,6 +18,11 @@ export class KithSocket {
   onFrame(handler: Handler): () => void {
     this.handlers.add(handler);
     return () => this.handlers.delete(handler);
+  }
+
+  onOpen(handler: () => void): () => void {
+    this.openHandlers.add(handler);
+    return () => this.openHandlers.delete(handler);
   }
 
   async connect(): Promise<void> {
@@ -32,6 +38,7 @@ export class KithSocket {
     this.ws = ws;
     ws.onopen = () => {
       this.backoff = 1000;
+      for (const handler of this.openHandlers) handler();
     };
     ws.onmessage = (event) => {
       if (typeof event.data !== 'string') return;

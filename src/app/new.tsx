@@ -4,9 +4,11 @@
 
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
-import { QrCode, UserPlus, Users, X } from 'lucide-react-native';
+import { AtSign, QrCode, UserPlus, Users, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
+
+import { BACKEND_ENABLED } from '@/net/config';
 
 import { Screen } from '@/components/layout/Screen';
 import { Avatar } from '@/components/ui/Avatar';
@@ -25,6 +27,7 @@ import type { User } from '@/types/models';
 export default function NewChatScreen() {
   const theme = useTheme();
   const createDirect = useChatStore((s) => s.createDirect);
+  const startDirectWithUsername = useChatStore((s) => s.startDirectWithUsername);
   const [query, setQuery] = useState('');
 
   const q = query.trim().toLowerCase();
@@ -35,6 +38,14 @@ export default function NewChatScreen() {
   const openWith = (user: User) => {
     const id = createDirect(user.id);
     router.replace({ pathname: '/conversation/[id]', params: { id } });
+  };
+
+  const startByUsername = async () => {
+    const username = q.replace(/[^a-z0-9_]/g, '');
+    if (username.length < 3) return;
+    const id = await startDirectWithUsername(username);
+    if (id) router.replace({ pathname: '/conversation/[id]', params: { id } });
+    else Alert.alert('No such user', `No one is registered as @${username}.`);
   };
 
   return (
@@ -54,12 +65,12 @@ export default function NewChatScreen() {
       </View>
 
       <View style={{ paddingBottom: theme.space.sm }}>
-        <SearchField value={query} onChangeText={setQuery} placeholder="Search people" autoFocus />
+        <SearchField value={query} onChangeText={setQuery} placeholder={BACKEND_ENABLED ? 'Enter a username' : 'Search people'} autoFocus />
       </View>
 
       <View style={{ flex: 1, marginHorizontal: -theme.space.xl }}>
         <FlashList
-          data={people}
+          data={BACKEND_ENABLED ? [] : people}
           keyExtractor={(item) => item.id}
           ListHeaderComponent={
             <View>
@@ -68,7 +79,21 @@ export default function NewChatScreen() {
                 <SettingsRow icon={Users} label="New community" onPress={() => router.push('/new-community')} />
                 <SettingsRow icon={QrCode} label="Scan a code" onPress={() => router.push('/scan')} />
               </Surface>
-              <ListSectionLabel label="People" />
+              {BACKEND_ENABLED ? (
+                q.length >= 3 ? (
+                  <Surface variant="flat" style={{ marginHorizontal: theme.space.xl, marginTop: theme.space.md, overflow: 'hidden' }}>
+                    <SettingsRow icon={AtSign} label={`Message @${q}`} onPress={startByUsername} />
+                  </Surface>
+                ) : (
+                  <View style={{ paddingHorizontal: theme.space.xl, paddingTop: theme.space.md }}>
+                    <Text variant="footnote" tone="tertiary">
+                      Enter a username to start an encrypted chat.
+                    </Text>
+                  </View>
+                )
+              ) : (
+                <ListSectionLabel label="People" />
+              )}
             </View>
           }
           renderItem={({ item }) => (

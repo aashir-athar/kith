@@ -5,8 +5,9 @@
 import { create } from 'zustand';
 
 import { api } from '@/api/client';
+import { openFrom } from '@/crypto/e2e';
 import { newId } from '@/lib/id';
-import { conversationPeer, conversations as seedConversations, me, messagesByConversation as seedMessages, usersById } from '@/lib/mockData';
+import { conversationPeer, conversations as seedConversations, me, messagesByConversation as seedMessages, registerUser, usersById } from '@/lib/mockData';
 import { BACKEND_ENABLED } from '@/net/config';
 import { messaging } from '@/net/messaging';
 import { useSessionStore } from '@/stores/useSessionStore';
@@ -41,6 +42,12 @@ interface ChatState {
   createDirect: (userId: string) => string;
   receiveServerMessage: (input: { serverConversationId: string; seq: number; senderId: string; text: string; createdAt: number }) => void;
   applySentAck: (input: { clientId: string; seq: number; id: string }) => void;
+  applyReceipt: (input: { conversationId: string; seq: number; userId: string; kind: 'delivered' | 'read' }) => void;
+  hydrateFromServer: () => Promise<void>;
+  ensureServerConversation: (serverConversationId: string, senderId: string) => Promise<void>;
+  hydrateHistory: (localConversationId: string) => Promise<void>;
+  syncAll: () => void;
+  startDirectWithUsername: (username: string) => Promise<string | null>;
 }
 
 function previewFor(kind: MessageKind, text?: string): string {
@@ -136,9 +143,12 @@ export const useChatStore = create<ChatState>((set, get) => {
     status: 'sending',
   });
 
+  const hasSeq = (convId: string, seq: number) => (get().messages[convId] ?? []).some((m) => m.serverSeq === seq);
+
   return {
-    conversations: seedConversations,
-    messages: seedMessages,
+    // In backend mode the list is hydrated from the server; the mock seed is only for offline demo.
+    conversations: BACKEND_ENABLED ? [] : seedConversations,
+    messages: BACKEND_ENABLED ? {} : seedMessages,
 
     sendText: (conversationId, text, extras) => {
       const trimmed = text.trim();
@@ -233,10 +243,16 @@ export const useChatStore = create<ChatState>((set, get) => {
         };
       }),
 
-    markRead: (conversationId) =>
+    markRead: (conversationId) => {
+      const conv = get().conversations.find((c) => c.id === conversationId);
       set((state) => ({
         conversations: state.conversations.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c)),
-      })),
+      }));
+      if (BACKEND_ENABLED && conv?.serverId) {
+        const highestSeq = (get().messages[conversationId] ?? []).reduce((max, m) => Math.max(max, m.serverSeq ?? 0), 0);
+        if (highestSeq > 0) messaging.markRead(conv.serverId, highestSeq);
+      }
+    },
     togglePin: (conversationId) =>
       set((state) => ({
         conversations: state.conversations.map((c) => (c.id === conversationId ? { ...c, pinned: !c.pinned } : c)),
@@ -284,7 +300,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     receiveServerMessage: ({ serverConversationId, seq, text, createdAt }) => {
       const conv = get().conversations.find((c) => c.serverId === serverConversationId);
-      if (!conv) return;
+      if (!conv || hasSeq(conv.id, seq)) return;
       const peer = conversationPeer(conv);
       push(conv.id, {
         id: newId(),
@@ -297,7 +313,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         serverSeq: seq,
       });
       set((state) => ({
-        conversations: state.conversations.map((c) => (c.id === conv.id ? { ...c, unreadCount: c.unreadCount + 1 } : c)),
+        conversations: state.conversations.map((c) => (c.id === conv.id ? { ...c, unreadCount: c.unreadCount + 1, lastMessagePreview: text } : c)),
       }));
     },
 
@@ -305,10 +321,134 @@ export const useChatStore = create<ChatState>((set, get) => {
       set((state) => {
         const messages: Record<string, Message[]> = {};
         for (const [cid, list] of Object.entries(state.messages)) {
-          messages[cid] = list.map((m) => (m.id === clientId ? { ...m, status: 'delivered', serverSeq: seq } : m));
+          messages[cid] = list.map((m) => (m.id === clientId ? { ...m, status: 'sent', serverSeq: seq } : m));
         }
         return { messages };
       });
+    },
+
+    applyReceipt: ({ conversationId, seq, kind }) => {
+      const conv = get().conversations.find((c) => c.serverId === conversationId);
+      if (!conv) return;
+      set((state) => ({
+        messages: {
+          ...state.messages,
+          [conv.id]: (state.messages[conv.id] ?? []).map((m) =>
+            m.senderId === me.id && (m.serverSeq ?? 0) <= seq && m.status !== 'read' ? { ...m, status: kind } : m,
+          ),
+        },
+      }));
+    },
+
+    hydrateFromServer: async () => {
+      const token = useSessionStore.getState().serverToken;
+      if (!token) return;
+      const { conversations: summaries } = await api.listConversations(token);
+      const convs: Conversation[] = summaries.map((s) => {
+        if (s.peer) registerUser({ id: s.peer.id, username: s.peer.username, displayName: s.peer.displayName });
+        return {
+          id: s.id,
+          kind: s.kind,
+          serverId: s.id,
+          peerUsername: s.peer?.username,
+          participantIds: s.peer ? [me.id, s.peer.id] : [me.id],
+          unreadCount: s.unreadCount,
+          pinned: false,
+          muted: false,
+          encrypted: true,
+          lastMessageAt: s.lastMessage ? new Date(s.lastMessage.createdAt).toISOString() : undefined,
+          lastMessagePreview: s.lastMessage ? 'Encrypted message' : '',
+        };
+      });
+      set({ conversations: convs });
+    },
+
+    ensureServerConversation: async (serverConversationId, senderId) => {
+      if (get().conversations.some((c) => c.serverId === serverConversationId)) return;
+      const token = useSessionStore.getState().serverToken;
+      if (!token) return;
+      try {
+        const peer = await api.user(token, senderId);
+        registerUser({ id: peer.id, username: peer.username, displayName: peer.displayName });
+        const conversation: Conversation = {
+          id: serverConversationId,
+          kind: 'direct',
+          serverId: serverConversationId,
+          peerUsername: peer.username,
+          participantIds: [me.id, peer.id],
+          unreadCount: 0,
+          pinned: false,
+          muted: false,
+          encrypted: true,
+          lastMessageAt: new Date().toISOString(),
+          lastMessagePreview: '',
+        };
+        set((state) => ({ conversations: [conversation, ...state.conversations] }));
+      } catch {
+        await get().hydrateFromServer();
+      }
+    },
+
+    hydrateHistory: async (localConversationId) => {
+      const token = useSessionStore.getState().serverToken;
+      const conv = get().conversations.find((c) => c.id === localConversationId);
+      if (!token || !conv?.serverId) return;
+      const myServerId = useSessionStore.getState().serverUserId;
+      const peerLocalId = conversationPeer(conv)?.id ?? localConversationId;
+      const { messages: dtos } = await api.history(token, conv.serverId);
+      const loaded: Message[] = [];
+      for (const dto of dtos) {
+        // Own sent messages are sealed to the peer (not re-decryptable here); they live locally.
+        if (dto.senderId === myServerId || hasSeq(localConversationId, dto.seq)) continue;
+        try {
+          const text = await openFrom(dto.envelope);
+          loaded.push({ id: dto.id, conversationId: localConversationId, senderId: peerLocalId, kind: 'text', text, createdAt: new Date(dto.createdAt).toISOString(), status: 'read', serverSeq: dto.seq });
+        } catch {
+          // undecryptable; skip
+        }
+      }
+      if (loaded.length === 0) return;
+      set((state) => {
+        const merged = [...(state.messages[localConversationId] ?? []), ...loaded].sort((a, b) => (a.serverSeq ?? 0) - (b.serverSeq ?? 0));
+        return { messages: { ...state.messages, [localConversationId]: merged } };
+      });
+    },
+
+    syncAll: () => {
+      for (const c of get().conversations) {
+        if (!c.serverId) continue;
+        const maxSeq = (get().messages[c.id] ?? []).reduce((max, m) => Math.max(max, m.serverSeq ?? 0), 0);
+        messaging.sync(c.serverId, maxSeq);
+      }
+    },
+
+    startDirectWithUsername: async (username) => {
+      const token = useSessionStore.getState().serverToken;
+      if (!token) return null;
+      try {
+        const peer = await api.lookupUser(token, username);
+        registerUser({ id: peer.id, username: peer.username, displayName: peer.displayName });
+        const direct = await api.createDirect(token, username);
+        const existing = get().conversations.find((c) => c.serverId === direct.id);
+        if (existing) return existing.id;
+        const conversation: Conversation = {
+          id: direct.id,
+          kind: 'direct',
+          serverId: direct.id,
+          peerUsername: peer.username,
+          participantIds: [me.id, peer.id],
+          unreadCount: 0,
+          pinned: false,
+          muted: false,
+          encrypted: true,
+          lastMessageAt: new Date().toISOString(),
+          lastMessagePreview: '',
+        };
+        set((state) => ({ conversations: [conversation, ...state.conversations] }));
+        return direct.id;
+      } catch {
+        return null;
+      }
     },
   };
 });

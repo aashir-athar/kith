@@ -1,7 +1,7 @@
-// Messaging service: the live send/receive path. Bridges the socket + crypto to the app. Sending
-// fetches the peer's prekey bundle, seals the plaintext, and emits a WS send frame. Receiving
-// opens the envelope, hands the plaintext up, and acks delivery. Plaintext exists only here and
-// in the UI, never on the wire.
+// Messaging service: the live send/receive path. Sending fetches the peer's prekey bundle, seals
+// the plaintext, and emits a WS send frame. Receiving opens the envelope (always sealed to us),
+// ensures the conversation exists locally, hands the plaintext up, and acks delivery. On every
+// (re)connect it asks the app to resync missed messages. Plaintext exists only here and in the UI.
 
 import { api } from '@/api/client';
 import { KithSocket } from '@/api/socket';
@@ -17,9 +17,11 @@ export interface IncomingMessage {
 }
 
 export interface Handlers {
+  ensureConversation: (serverConversationId: string, senderId: string) => Promise<void>;
   onIncoming: (msg: IncomingMessage) => void;
   onSent: (info: { clientId: string; conversationId: string; seq: number; id: string; createdAt: number }) => void;
   onReceipt: (info: { conversationId: string; seq: number; userId: string; kind: 'delivered' | 'read' }) => void;
+  onConnect: () => void;
 }
 
 class Messaging {
@@ -36,6 +38,7 @@ class Messaging {
       return api.wsUrl(ticket);
     });
     this.socket.onFrame((frame) => void this.handle(frame));
+    this.socket.onOpen(() => this.handlers?.onConnect());
     void this.socket.connect();
   }
 
@@ -44,10 +47,11 @@ class Messaging {
     if (frame.t === 'message') {
       try {
         const text = await openFrom(frame.envelope);
+        await this.handlers.ensureConversation(frame.conversationId, frame.senderId);
         this.handlers.onIncoming({ conversationId: frame.conversationId, seq: frame.seq, senderId: frame.senderId, text, createdAt: frame.createdAt });
         this.socket?.send({ t: 'delivered', conversationId: frame.conversationId, seq: frame.seq });
       } catch {
-        // undecryptable (e.g. not addressed to this device); skip
+        // undecryptable (not addressed to this device); skip
       }
     } else if (frame.t === 'sent') {
       this.handlers.onSent({ clientId: frame.clientId, conversationId: frame.conversationId, seq: frame.seq, id: frame.id, createdAt: frame.createdAt });
@@ -56,7 +60,6 @@ class Messaging {
     }
   }
 
-  /** Seal to the peer's bundle and emit a send frame. Returns false if not connected. */
   async sendText(conversationId: string, peerUsername: string, clientId: string, text: string): Promise<boolean> {
     if (!this.token || !this.socket) return false;
     const bundle = await api.bundle(this.token, peerUsername);

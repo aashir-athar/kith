@@ -74,6 +74,7 @@ export default function ConversationScreen() {
   const deleteMessage = useChatStore((s) => s.deleteMessage);
   const forwardMessage = useChatStore((s) => s.forwardMessage);
   const markRead = useChatStore((s) => s.markRead);
+  const hydrateHistory = useChatStore((s) => s.hydrateHistory);
 
   const [text, setText] = useState('');
   const [selected, setSelected] = useState<Message | null>(null);
@@ -109,8 +110,10 @@ export default function ConversationScreen() {
     : `${incoming.length} messages while you were away, including media and updates.`;
 
   useEffect(() => {
-    if (cid) markRead(cid);
-  }, [cid, markRead]);
+    if (!cid) return;
+    void hydrateHistory(cid);
+    markRead(cid);
+  }, [cid, markRead, hydrateHistory]);
 
   const handleSend = () => {
     const trimmed = text.trim();

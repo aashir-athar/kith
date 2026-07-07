@@ -3,13 +3,14 @@
 
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { Alert, TextInput, View } from 'react-native';
 
 import { BackHeader } from '@/components/layout/BackHeader';
 import { Screen } from '@/components/layout/Screen';
 import { Button } from '@/components/ui/Button';
 import { Surface } from '@/components/ui/Surface';
 import { Text } from '@/components/ui/Text';
+import { BACKEND_ENABLED } from '@/net/config';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fontFamily } from '@/theme/typography';
@@ -19,6 +20,7 @@ export default function RestoreScreen() {
   const setUsername = useSessionStore((s) => s.setUsername);
   const setRecoveryMethod = useSessionStore((s) => s.setRecoveryMethod);
   const complete = useSessionStore((s) => s.completeOnboarding);
+  const loginWithServer = useSessionStore((s) => s.loginWithServer);
   const [handle, setHandle] = useState('');
   const [pin, setPin] = useState('');
   const ready = handle.trim().length >= 3 && pin.length === 6;
@@ -81,10 +83,19 @@ export default function RestoreScreen() {
           variant="primary"
           fullWidth
           disabled={!ready}
-          onPress={() => {
-            setUsername(handle);
-            setRecoveryMethod('pin');
-            complete();
+          onPress={async () => {
+            if (BACKEND_ENABLED) {
+              try {
+                await loginWithServer(handle);
+              } catch {
+                Alert.alert('Could not restore', 'Check your username and recovery PIN, or that this device holds your keys.');
+                return;
+              }
+            } else {
+              setUsername(handle);
+              setRecoveryMethod('pin');
+              complete();
+            }
             router.replace('/');
           }}
         />
