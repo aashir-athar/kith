@@ -48,7 +48,13 @@ export const useSessionStore = create<SessionState>((set) => ({
     const material = await bootstrapIdentity();
     const session = await api.register({ username, displayName, ...material });
     await saveSession({ token: session.token, userId: session.userId, deviceId: session.deviceId });
-    set({ serverToken: session.token, serverUserId: session.userId, serverDeviceId: session.deviceId, onboarded: true });
+    set((state) => ({
+      serverToken: session.token,
+      serverUserId: session.userId,
+      serverDeviceId: session.deviceId,
+      onboarded: true,
+      currentUser: { ...state.currentUser, username, displayName },
+    }));
   },
   loginWithServer: async (username) => {
     if (!(await hasIdentity())) throw new Error('no identity on this device; register instead');
@@ -56,7 +62,19 @@ export const useSessionStore = create<SessionState>((set) => ({
     const signature = await signChallenge(challenge);
     const session = await api.verify({ username, challenge, signature });
     await saveSession({ token: session.token, userId: session.userId, deviceId: session.deviceId });
-    set({ serverToken: session.token, serverUserId: session.userId, serverDeviceId: session.deviceId, onboarded: true });
+    let displayName = username;
+    try {
+      displayName = (await api.lookupUser(session.token, username)).displayName;
+    } catch {
+      // fall back to the handle
+    }
+    set((state) => ({
+      serverToken: session.token,
+      serverUserId: session.userId,
+      serverDeviceId: session.deviceId,
+      onboarded: true,
+      currentUser: { ...state.currentUser, username, displayName },
+    }));
   },
   restoreServerSession: async () => {
     const stored = await loadSession();

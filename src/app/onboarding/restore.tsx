@@ -1,5 +1,6 @@
-// Restore an existing account. The returning-user path: enter your username and the recovery
-// PIN you set, and your encrypted history unlocks on this device. Not a silent jump into the app.
+// Sign back in on this device. The identity key is already in the secure store, so we re-verify
+// it by signing a server challenge; no PIN theatre. Cross-device restore (recovering the key from
+// a PIN/phrase on a fresh device) is a later addition, and the screen says so honestly.
 
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -18,21 +19,19 @@ import { fontFamily } from '@/theme/typography';
 export default function RestoreScreen() {
   const theme = useTheme();
   const setUsername = useSessionStore((s) => s.setUsername);
-  const setRecoveryMethod = useSessionStore((s) => s.setRecoveryMethod);
   const complete = useSessionStore((s) => s.completeOnboarding);
   const loginWithServer = useSessionStore((s) => s.loginWithServer);
   const [handle, setHandle] = useState('');
-  const [pin, setPin] = useState('');
-  const ready = handle.trim().length >= 3 && pin.length === 6;
+  const ready = handle.trim().length >= 3;
 
   return (
     <Screen edges={['top']}>
       <BackHeader />
       <View style={{ flex: 1, paddingHorizontal: theme.space.xl, gap: theme.space.lg }}>
         <View style={{ gap: theme.space.sm }}>
-          <Text variant="displayLg">Restore your account</Text>
+          <Text variant="displayLg">Sign back in</Text>
           <Text variant="body" tone="secondary">
-            Enter your username and the recovery PIN you set. Your encrypted history unlocks on this device once they match.
+            Your keys are already on this device. Enter your username and we re-verify it is you, no password to type.
           </Text>
         </View>
 
@@ -55,31 +54,14 @@ export default function RestoreScreen() {
               style={{ flex: 1, color: theme.colors.ink, fontFamily: fontFamily.body, fontSize: 17 }}
             />
           </Surface>
-        </View>
-
-        <View style={{ gap: theme.space.xs }}>
-          <Text variant="caption" tone="secondary" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>
-            Recovery PIN
-          </Text>
-          <Surface variant="flat" style={{ paddingHorizontal: theme.space.lg, height: 56, justifyContent: 'center' }}>
-            <TextInput
-              value={pin}
-              onChangeText={(t) => setPin(t.replace(/[^0-9]/g, '').slice(0, 6))}
-              keyboardType="number-pad"
-              secureTextEntry
-              placeholder="6 digits"
-              placeholderTextColor={theme.colors.inkTertiary}
-              style={{ color: theme.colors.ink, fontFamily: fontFamily.mono, fontSize: 20, letterSpacing: 8 }}
-            />
-          </Surface>
           <Text variant="footnote" tone="tertiary">
-            Lost your PIN? A recovery phrase restores the same way.
+            New phone? Restoring from a recovery PIN or phrase is coming soon.
           </Text>
         </View>
 
         <View style={{ flex: 1 }} />
         <Button
-          label="Restore account"
+          label="Sign in on this device"
           variant="primary"
           fullWidth
           disabled={!ready}
@@ -88,12 +70,11 @@ export default function RestoreScreen() {
               try {
                 await loginWithServer(handle);
               } catch {
-                Alert.alert('Could not restore', 'Check your username and recovery PIN, or that this device holds your keys.');
+                Alert.alert('Could not sign in', 'Check the username, or that this device holds your keys. Restoring on a new device is not available yet.');
                 return;
               }
             } else {
               setUsername(handle);
-              setRecoveryMethod('pin');
               complete();
             }
             router.replace('/');
