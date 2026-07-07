@@ -15,7 +15,7 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import type { Db } from '../db';
 import * as schema from '../db/schema';
 import { devices, users } from '../db/schema';
-import { createOrGetDirect, participantIds } from './conversations';
+import { createOrGetDirect, listConversations, participantIds } from './conversations';
 import { history, isParticipant, persistMessage, syncAfter } from './messages';
 
 const rnd = (n: number) => new Uint8Array(nodeRandomBytes(n));
@@ -85,5 +85,24 @@ test('messages get monotonic seq and round-trip through history/sync', async () 
     page.map((m) => m.seq),
     [1, 2],
   );
+  await client.close();
+});
+
+test('listConversations returns peer identity, last message, and unread', async () => {
+  const { client, db, alice, bob, aliceDevice } = await setup();
+  const conv = await createOrGetDirect(alice.id, bob.id, db);
+  await persistMessage({ conversationId: conv.id, senderUserId: alice.id, senderDeviceId: aliceDevice.id, envelope: envelope('hi bob') }, db);
+
+  const bobList = await listConversations(bob.id, db);
+  assert.equal(bobList.length, 1);
+  assert.equal(bobList[0]!.id, conv.id);
+  assert.equal(bobList[0]!.peer?.username, 'alice');
+  assert.equal(bobList[0]!.peer?.displayName, 'Alice');
+  assert.equal(bobList[0]!.unreadCount, 1);
+  assert.equal(bobList[0]!.lastMessage?.senderId, alice.id);
+  assert.equal(new TextDecoder().decode(fromHex(bobList[0]!.lastMessage!.envelope.ciphertext)), 'hi bob');
+
+  const aliceList = await listConversations(alice.id, db);
+  assert.equal(aliceList[0]!.peer?.username, 'bob');
   await client.close();
 });

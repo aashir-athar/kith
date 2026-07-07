@@ -13,6 +13,7 @@ import { auth } from './routes/auth';
 import { conversationsRoute } from './routes/conversations';
 import { keys } from './routes/keys';
 import { rt } from './routes/rt';
+import { usersRoute } from './routes/users';
 
 const app = new Hono();
 
@@ -22,6 +23,7 @@ app.route('/auth', auth);
 app.route('/keys', keys);
 app.route('/rt', rt);
 app.route('/conversations', conversationsRoute);
+app.route('/users', usersRoute);
 app.get('/ws', wsRoute);
 
 const server = serve({ fetch: app.fetch, port: env.PORT, websocket: { server: wss } }, (info) => {

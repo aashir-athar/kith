@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 
-import { b64 } from './envelope';
+import { b64, MessageEnvelope } from './envelope';
 import { OneTimePreKey, SignedPreKey } from './keys';
 
 export const USERNAME_RE = /^[a-z0-9_]+$/;
@@ -54,3 +54,39 @@ export const UserPublic = z.object({
   displayName: z.string(),
 });
 export type UserPublic = z.infer<typeof UserPublic>;
+
+/** One stored message on the wire. Same shape for REST history and the socket 'message' frame. */
+export const MessageDTO = z.object({
+  id: z.string(),
+  conversationId: z.string(),
+  seq: z.number(),
+  senderId: z.string(),
+  envelope: MessageEnvelope,
+  createdAt: z.number(),
+});
+export type MessageDTO = z.infer<typeof MessageDTO>;
+
+export const HistoryResponse = z.object({ messages: z.array(MessageDTO) });
+export type HistoryResponse = z.infer<typeof HistoryResponse>;
+
+/** A conversation as it appears in the caller's list, with peer identity and cursors. */
+export const ConversationSummary = z.object({
+  id: z.string(),
+  kind: z.enum(['direct', 'group']),
+  peer: UserPublic.nullable(),
+  lastMessage: MessageDTO.nullable(),
+  unreadCount: z.number(),
+  peerLastReadSeq: z.number(),
+  peerLastDeliveredSeq: z.number(),
+});
+export type ConversationSummary = z.infer<typeof ConversationSummary>;
+
+export const ConversationListResponse = z.object({ conversations: z.array(ConversationSummary) });
+export type ConversationListResponse = z.infer<typeof ConversationListResponse>;
+
+export const DirectConversationResponse = z.object({
+  id: z.string(),
+  kind: z.string(),
+  participants: z.array(z.string()),
+});
+export type DirectConversationResponse = z.infer<typeof DirectConversationResponse>;

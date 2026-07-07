@@ -125,7 +125,7 @@ async function handleFrame(conn: Conn, raw: string): Promise<void> {
     case 'sync': {
       const missed = await syncAfter(frame.conversationId, frame.afterSeq);
       for (const m of missed) {
-        conn.ws.send(J({ t: 'message', conversationId: m.conversationId, seq: m.seq, id: m.id, senderId: m.senderUserId, envelope: m.envelope, createdAt: m.createdAt }));
+        conn.ws.send(J({ t: 'message', conversationId: m.conversationId, seq: m.seq, id: m.id, senderId: m.senderId, envelope: m.envelope, createdAt: m.createdAt }));
       }
       return;
     }

@@ -6,12 +6,16 @@ import { Hono } from 'hono';
 
 import { db } from '../db';
 import { users } from '../db/schema';
-import { createOrGetDirect, participantIds } from '../lib/conversations';
+import { createOrGetDirect, listConversations, participantIds } from '../lib/conversations';
 import { history, isParticipant } from '../lib/messages';
 import { requireAuth, type AuthEnv } from '../middleware/auth';
 
 export const conversationsRoute = new Hono<AuthEnv>();
 conversationsRoute.use('*', requireAuth);
+
+conversationsRoute.get('/', async (c) => {
+  return c.json({ conversations: await listConversations(c.get('session').userId) });
+});
 
 conversationsRoute.post('/direct', async (c) => {
   const body = (await c.req.json().catch(() => null)) as { username?: unknown } | null;
