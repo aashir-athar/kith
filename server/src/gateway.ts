@@ -10,7 +10,7 @@ import { WebSocketServer } from 'ws';
 
 import { redeemTicket, type Session } from './lib/session';
 import { participantIds } from './lib/conversations';
-import { advanceCursor, isParticipant, persistMessage, syncAfter } from './lib/messages';
+import { advanceCursor, deleteMessageAt, editMessage, isParticipant, persistMessage, syncAfter } from './lib/messages';
 import { redis, redisSub } from './redis';
 
 /** ws server handed to serve({ websocket: { server } }); also used for heartbeats. */
@@ -107,6 +107,27 @@ async function handleFrame(conn: Conn, raw: string): Promise<void> {
         envelope: rec.envelope,
         createdAt: rec.createdAt,
       });
+      return;
+    }
+
+    case 'edit': {
+      // Only the original sender can edit; editMessage enforces ownership in its WHERE clause.
+      const ok = await editMessage(frame.conversationId, frame.targetSeq, userId, frame.envelope);
+      if (!ok) {
+        conn.ws.send(J({ t: 'error', message: 'cannot edit that message' }));
+        return;
+      }
+      await publishToOthers(frame.conversationId, userId, { t: 'edited', conversationId: frame.conversationId, seq: frame.targetSeq, envelope: frame.envelope, editedAt: Date.now() });
+      return;
+    }
+
+    case 'delete': {
+      const ok = await deleteMessageAt(frame.conversationId, frame.targetSeq, userId);
+      if (!ok) {
+        conn.ws.send(J({ t: 'error', message: 'cannot delete that message' }));
+        return;
+      }
+      await publishToOthers(frame.conversationId, userId, { t: 'deleted', conversationId: frame.conversationId, seq: frame.targetSeq });
       return;
     }
 

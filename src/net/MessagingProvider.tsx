@@ -41,6 +41,8 @@ export function MessagingProvider({ children }: { children: ReactNode }) {
         useChatStore.getState().receiveServerMessage({ serverConversationId: m.conversationId, seq: m.seq, senderId: m.senderId, text: m.text, createdAt: m.createdAt }),
       onSent: (a) => useChatStore.getState().applySentAck({ clientId: a.clientId, seq: a.seq, id: a.id }),
       onReceipt: (r) => useChatStore.getState().applyReceipt(r),
+      onEdited: (e) => useChatStore.getState().applyEdited(e),
+      onDeleted: (d) => useChatStore.getState().applyDeleted(d),
       onConnect: () => useChatStore.getState().syncAll(),
     });
     return () => messaging.disconnect();

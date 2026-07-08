@@ -8,6 +8,13 @@
       "when": 1783360562338,
       "tag": "0000_sharp_leopardon",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783475465754,
+      "tag": "0001_special_annihilus",
+      "breakpoints": true
     }
   ]
 }

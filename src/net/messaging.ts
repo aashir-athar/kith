@@ -21,6 +21,8 @@ export interface Handlers {
   onIncoming: (msg: IncomingMessage) => void;
   onSent: (info: { clientId: string; conversationId: string; seq: number; id: string; createdAt: number }) => void;
   onReceipt: (info: { conversationId: string; seq: number; userId: string; kind: 'delivered' | 'read' }) => void;
+  onEdited: (info: { conversationId: string; seq: number; text: string; editedAt: number }) => void;
+  onDeleted: (info: { conversationId: string; seq: number }) => void;
   onConnect: () => void;
 }
 
@@ -57,6 +59,15 @@ class Messaging {
       this.handlers.onSent({ clientId: frame.clientId, conversationId: frame.conversationId, seq: frame.seq, id: frame.id, createdAt: frame.createdAt });
     } else if (frame.t === 'receipt') {
       this.handlers.onReceipt({ conversationId: frame.conversationId, seq: frame.seq, userId: frame.userId, kind: frame.kind });
+    } else if (frame.t === 'edited') {
+      try {
+        const text = await openFrom(frame.envelope);
+        this.handlers.onEdited({ conversationId: frame.conversationId, seq: frame.seq, text, editedAt: frame.editedAt });
+      } catch {
+        // undecryptable edit; skip
+      }
+    } else if (frame.t === 'deleted') {
+      this.handlers.onDeleted({ conversationId: frame.conversationId, seq: frame.seq });
     }
   }
 
@@ -65,6 +76,19 @@ class Messaging {
     const bundle = await api.bundle(this.token, peerUsername);
     const envelope = await sealTo(bundle, text);
     return this.socket.send({ t: 'send', conversationId, clientId, envelope });
+  }
+
+  /** Re-seal the new text and propagate an edit of the message at targetSeq. */
+  async sendEdit(conversationId: string, peerUsername: string, targetSeq: number, newText: string): Promise<boolean> {
+    if (!this.token || !this.socket) return false;
+    const bundle = await api.bundle(this.token, peerUsername);
+    const envelope = await sealTo(bundle, newText);
+    return this.socket.send({ t: 'edit', conversationId, targetSeq, envelope });
+  }
+
+  /** Delete-for-everyone the message at targetSeq. */
+  sendDelete(conversationId: string, targetSeq: number): boolean {
+    return this.socket?.send({ t: 'delete', conversationId, targetSeq }) ?? false;
   }
 
   markRead(conversationId: string, seq: number): void {

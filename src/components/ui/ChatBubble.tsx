@@ -74,6 +74,14 @@ export function ChatBubble({ message, mine, replyPreview, author, onRetry }: Cha
       content = message.text ? <Text variant="body">{message.text}</Text> : null;
   }
 
+  if (message.deleted) {
+    content = (
+      <Text variant="body" tone="tertiary" style={{ fontStyle: 'italic' }}>
+        This message was deleted
+      </Text>
+    );
+  }
+
   return (
     <View style={{ maxWidth: '82%', alignSelf: mine ? 'flex-end' : 'flex-start', marginVertical: theme.space.xxs }}>
       <View
@@ -121,7 +129,7 @@ export function ChatBubble({ message, mine, replyPreview, author, onRetry }: Cha
 
         <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', gap: theme.space.xs }}>
           {message.starred ? <Icon icon={Star} size={12} tone="accent" /> : null}
-          {message.editedAt ? (
+          {message.editedAt && !message.deleted ? (
             <Text variant="caption" tone="tertiary">
               edited
             </Text>

@@ -16,7 +16,7 @@ import type { Db } from '../db';
 import * as schema from '../db/schema';
 import { devices, users } from '../db/schema';
 import { createOrGetDirect, listConversations, participantIds } from './conversations';
-import { history, isParticipant, persistMessage, syncAfter } from './messages';
+import { deleteMessageAt, editMessage, history, isParticipant, persistMessage, syncAfter } from './messages';
 
 const rnd = (n: number) => new Uint8Array(nodeRandomBytes(n));
 const MIGRATIONS = fileURLToPath(new URL('../../drizzle', import.meta.url));
@@ -104,5 +104,31 @@ test('listConversations returns peer identity, last message, and unread', async 
 
   const aliceList = await listConversations(alice.id, db);
   assert.equal(aliceList[0]!.peer?.username, 'bob');
+  await client.close();
+});
+
+test('edit and delete are sender-only and reflected in history', async () => {
+  const { client, db, alice, bob, aliceDevice } = await setup();
+  const conv = await createOrGetDirect(alice.id, bob.id, db);
+  const m = await persistMessage({ conversationId: conv.id, senderUserId: alice.id, senderDeviceId: aliceDevice.id, envelope: envelope('original') }, db);
+
+  // A non-sender cannot edit or delete.
+  assert.equal(await editMessage(conv.id, m.seq, bob.id, envelope('hacked'), db), false);
+  assert.equal(await deleteMessageAt(conv.id, m.seq, bob.id, db), false);
+
+  // The sender edits their own message.
+  assert.equal(await editMessage(conv.id, m.seq, alice.id, envelope('edited text'), db), true);
+  let all = await history(conv.id, null, 50, db);
+  assert.equal(new TextDecoder().decode(fromHex(all[0]!.envelope.ciphertext)), 'edited text');
+  assert.ok(all[0]!.editedAt);
+  assert.equal(all[0]!.deleted, false);
+
+  // The sender deletes for everyone (tombstone).
+  assert.equal(await deleteMessageAt(conv.id, m.seq, alice.id, db), true);
+  all = await history(conv.id, null, 50, db);
+  assert.equal(all[0]!.deleted, true);
+
+  // A deleted message can no longer be edited.
+  assert.equal(await editMessage(conv.id, m.seq, alice.id, envelope('resurrect'), db), false);
   await client.close();
 });

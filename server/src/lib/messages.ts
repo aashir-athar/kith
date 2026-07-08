@@ -20,7 +20,44 @@ export async function isParticipant(conversationId: string, userId: string, db: 
 
 export function toDTO(row: typeof messages.$inferSelect): MessageDTO {
   const envelope = MessageEnvelope.parse({ ...row.envelope, ciphertext: toHex(row.ciphertext) });
-  return { id: row.id, conversationId: row.conversationId, seq: row.seq, senderId: row.senderUserId, envelope, createdAt: row.createdAt.getTime() };
+  return {
+    id: row.id,
+    conversationId: row.conversationId,
+    seq: row.seq,
+    senderId: row.senderUserId,
+    envelope,
+    createdAt: row.createdAt.getTime(),
+    editedAt: row.editedAt ? row.editedAt.getTime() : null,
+    deleted: row.deleted,
+  };
+}
+
+/** Edit (re-seal) a message. Only the original sender can; a deleted message cannot be edited. */
+export async function editMessage(conversationId: string, seq: number, senderUserId: string, envelope: MessageEnvelope, db: Db = defaultDb): Promise<boolean> {
+  const { ciphertext, ...routing } = envelope;
+  const updated = await db
+    .update(messages)
+    .set({ envelope: routing, ciphertext: fromHex(ciphertext), editedAt: new Date() })
+    .where(
+      and(
+        eq(messages.conversationId, conversationId),
+        eq(messages.seq, seq),
+        eq(messages.senderUserId, senderUserId),
+        eq(messages.deleted, false),
+      ),
+    )
+    .returning({ id: messages.id });
+  return updated.length > 0;
+}
+
+/** Delete-for-everyone. Only the original sender can; the ciphertext is wiped to a tombstone. */
+export async function deleteMessageAt(conversationId: string, seq: number, senderUserId: string, db: Db = defaultDb): Promise<boolean> {
+  const updated = await db
+    .update(messages)
+    .set({ deleted: true, ciphertext: new Uint8Array([0]), editedAt: new Date() })
+    .where(and(eq(messages.conversationId, conversationId), eq(messages.seq, seq), eq(messages.senderUserId, senderUserId)))
+    .returning({ id: messages.id });
+  return updated.length > 0;
 }
 
 export async function persistMessage(

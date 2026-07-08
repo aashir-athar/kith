@@ -120,6 +120,8 @@ export const messages = pgTable(
     envelope: jsonb().$type<Record<string, unknown>>().notNull(), // routing metadata only (no plaintext, no keys)
     ciphertext: bytea().notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    editedAt: timestamp({ withTimezone: true }), // set when the sender edits (re-seals) the message
+    deleted: boolean().default(false).notNull(), // delete-for-everyone tombstone; ciphertext is wiped
   },
   // keyset pagination + gap detection both ride this composite unique index
   (t) => [uniqueIndex('messages_conv_seq_idx').on(t.conversationId, t.seq)],

@@ -43,6 +43,8 @@ interface ChatState {
   receiveServerMessage: (input: { serverConversationId: string; seq: number; senderId: string; text: string; createdAt: number }) => void;
   applySentAck: (input: { clientId: string; seq: number; id: string }) => void;
   applyReceipt: (input: { conversationId: string; seq: number; userId: string; kind: 'delivered' | 'read' }) => void;
+  applyEdited: (input: { conversationId: string; seq: number; text: string; editedAt: number }) => void;
+  applyDeleted: (input: { conversationId: string; seq: number }) => void;
   hydrateFromServer: () => Promise<void>;
   ensureServerConversation: (serverConversationId: string, senderId: string) => Promise<void>;
   hydrateHistory: (localConversationId: string) => Promise<void>;
@@ -203,19 +205,31 @@ export const useChatStore = create<ChatState>((set, get) => {
       update(conversationId, messageId, (m) => ({ ...m, starred: !m.starred })),
     togglePinMessage: (conversationId, messageId) =>
       update(conversationId, messageId, (m) => ({ ...m, pinned: !m.pinned })),
-    editMessage: (conversationId, messageId, text) =>
-      update(conversationId, messageId, (m) => ({ ...m, text: text.trim(), editedAt: new Date().toISOString() })),
+    editMessage: (conversationId, messageId, text) => {
+      update(conversationId, messageId, (m) => ({ ...m, text: text.trim(), editedAt: new Date().toISOString() }));
+      const conv = get().conversations.find((c) => c.id === conversationId);
+      const msg = (get().messages[conversationId] ?? []).find((m) => m.id === messageId);
+      if (BACKEND_ENABLED && conv?.serverId && conv.peerUsername && msg?.serverSeq && msg.senderId === me.id) {
+        void messaging.sendEdit(conv.serverId, conv.peerUsername, msg.serverSeq, text.trim());
+      }
+    },
     retryMessage: (conversationId, messageId) => {
       update(conversationId, messageId, (m) => ({ ...m, status: 'sending' }));
       advance(conversationId, messageId);
     },
-    deleteMessage: (conversationId, messageId) =>
-      set((state) => ({
-        messages: {
-          ...state.messages,
-          [conversationId]: (state.messages[conversationId] ?? []).filter((m) => m.id !== messageId),
-        },
-      })),
+    deleteMessage: (conversationId, messageId) => {
+      const conv = get().conversations.find((c) => c.id === conversationId);
+      const msg = (get().messages[conversationId] ?? []).find((m) => m.id === messageId);
+      if (BACKEND_ENABLED && conv?.serverId && msg?.serverSeq && msg.senderId === me.id) {
+        // delete-for-everyone: tombstone locally and propagate to the peer
+        update(conversationId, messageId, (m) => ({ ...m, deleted: true, text: undefined }));
+        messaging.sendDelete(conv.serverId, msg.serverSeq);
+      } else {
+        set((state) => ({
+          messages: { ...state.messages, [conversationId]: (state.messages[conversationId] ?? []).filter((m) => m.id !== messageId) },
+        }));
+      }
+    },
 
     forwardMessage: (fromId, messageId, toId) =>
       set((state) => {
@@ -340,6 +354,30 @@ export const useChatStore = create<ChatState>((set, get) => {
       }));
     },
 
+    applyEdited: ({ conversationId, seq, text, editedAt }) => {
+      const conv = get().conversations.find((c) => c.serverId === conversationId);
+      if (!conv) return;
+      set((state) => ({
+        messages: {
+          ...state.messages,
+          [conv.id]: (state.messages[conv.id] ?? []).map((m) =>
+            m.serverSeq === seq ? { ...m, text, editedAt: new Date(editedAt).toISOString(), deleted: false } : m,
+          ),
+        },
+      }));
+    },
+
+    applyDeleted: ({ conversationId, seq }) => {
+      const conv = get().conversations.find((c) => c.serverId === conversationId);
+      if (!conv) return;
+      set((state) => ({
+        messages: {
+          ...state.messages,
+          [conv.id]: (state.messages[conv.id] ?? []).map((m) => (m.serverSeq === seq ? { ...m, deleted: true, text: undefined } : m)),
+        },
+      }));
+    },
+
     hydrateFromServer: async () => {
       const token = useSessionStore.getState().serverToken;
       if (!token) return;
@@ -400,9 +438,23 @@ export const useChatStore = create<ChatState>((set, get) => {
       for (const dto of dtos) {
         // Own sent messages are sealed to the peer (not re-decryptable here); they live locally.
         if (dto.senderId === myServerId || hasSeq(localConversationId, dto.seq)) continue;
+        if (dto.deleted) {
+          loaded.push({ id: dto.id, conversationId: localConversationId, senderId: peerLocalId, kind: 'text', deleted: true, createdAt: new Date(dto.createdAt).toISOString(), status: 'read', serverSeq: dto.seq });
+          continue;
+        }
         try {
           const text = await openFrom(dto.envelope);
-          loaded.push({ id: dto.id, conversationId: localConversationId, senderId: peerLocalId, kind: 'text', text, createdAt: new Date(dto.createdAt).toISOString(), status: 'read', serverSeq: dto.seq });
+          loaded.push({
+            id: dto.id,
+            conversationId: localConversationId,
+            senderId: peerLocalId,
+            kind: 'text',
+            text,
+            editedAt: dto.editedAt ? new Date(dto.editedAt).toISOString() : undefined,
+            createdAt: new Date(dto.createdAt).toISOString(),
+            status: 'read',
+            serverSeq: dto.seq,
+          });
         } catch {
           // undecryptable; skip
         }

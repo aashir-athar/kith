@@ -63,6 +63,8 @@ export const MessageDTO = z.object({
   senderId: z.string(),
   envelope: MessageEnvelope,
   createdAt: z.number(),
+  editedAt: z.number().nullable().optional(),
+  deleted: z.boolean().optional(),
 });
 export type MessageDTO = z.infer<typeof MessageDTO>;
 

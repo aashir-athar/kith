@@ -60,6 +60,7 @@ export interface Message {
   replyToId?: ID;
   reactions?: Reaction[];
   editedAt?: ISO;
+  deleted?: boolean;
   fileName?: string;
   fileSize?: string;
   latitude?: number;
