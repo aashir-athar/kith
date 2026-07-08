@@ -17,6 +17,7 @@ import { Surface } from '@/components/ui/Surface';
 import { Text } from '@/components/ui/Text';
 import { Toggle } from '@/components/ui/Toggle';
 import { conversationPeer, conversationTitle, me, usersById } from '@/lib/mockData';
+import { BACKEND_ENABLED } from '@/net/config';
 import { useChatStore } from '@/stores/useChatStore';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { User } from '@/types/models';
@@ -99,8 +100,12 @@ export default function ChatInfoScreen() {
 
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: theme.space.xl, paddingVertical: theme.space.xl }}>
           {quickAction('Message', MessageCircle, () => router.back())}
-          {quickAction('Call', Phone, () => router.push({ pathname: '/call/[id]', params: { id: peer?.id ?? cid } }))}
-          {quickAction('Video', Video, () => router.push({ pathname: '/call/[id]', params: { id: peer?.id ?? cid } }))}
+          {!BACKEND_ENABLED
+            ? quickAction('Call', Phone, () => router.push({ pathname: '/call/[id]', params: { id: peer?.id ?? cid } }))
+            : null}
+          {!BACKEND_ENABLED
+            ? quickAction('Video', Video, () => router.push({ pathname: '/call/[id]', params: { id: peer?.id ?? cid } }))
+            : null}
           {quickAction('Search', Search, () => router.push('/search'))}
         </View>
 

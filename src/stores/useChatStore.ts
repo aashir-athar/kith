@@ -218,8 +218,15 @@ export const useChatStore = create<ChatState>()(
       }
     },
     retryMessage: (conversationId, messageId) => {
+      const conv = get().conversations.find((c) => c.id === conversationId);
+      const msg = (get().messages[conversationId] ?? []).find((m) => m.id === messageId);
       update(conversationId, messageId, (m) => ({ ...m, status: 'sending' }));
-      advance(conversationId, messageId);
+      const peerUsername = conv ? (conv.peerUsername ?? conversationPeer(conv)?.username) : undefined;
+      if (BACKEND_ENABLED && conv?.kind === 'direct' && peerUsername && msg?.text) {
+        void sendReal(conversationId, peerUsername, messageId, msg.text);
+      } else {
+        advance(conversationId, messageId);
+      }
     },
     deleteMessage: (conversationId, messageId) => {
       const conv = get().conversations.find((c) => c.id === conversationId);

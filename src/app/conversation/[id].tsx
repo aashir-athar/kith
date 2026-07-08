@@ -25,6 +25,7 @@ import { avatarGradient } from '@/lib/avatar';
 import { dayLabel } from '@/lib/format';
 import { newId } from '@/lib/id';
 import { conversationPeer, conversationTitle, me, usersById } from '@/lib/mockData';
+import { BACKEND_ENABLED } from '@/net/config';
 import { useChatStore } from '@/stores/useChatStore';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { Message } from '@/types/models';
@@ -87,6 +88,9 @@ export default function ConversationScreen() {
 
   const title = conversation ? conversationTitle(conversation) : 'Conversation';
   const callTargetId = conversation ? (conversationPeer(conversation)?.id ?? cid) : cid;
+  // Only text is wired to the real encrypted transport. Media, voice, and calls are shown in the
+  // offline demo but are honestly absent in a live build rather than faking delivery.
+  const liveFeatures = !BACKEND_ENABLED;
 
   const rows: ThreadRow[] = [];
   let lastDay = '';
@@ -206,17 +210,17 @@ export default function ConversationScreen() {
             <Text variant="bodyStrong" numberOfLines={1}>
               {title}
             </Text>
-            <Text variant="caption" tone={isChannel || conversation?.verified ? 'secondary' : 'accent'}>
+            <Text variant="caption" tone="secondary">
               {isChannel
                 ? `${members ? members + ' members · ' : ''}encrypted for the room`
                 : conversation?.verified
-                  ? 'end-to-end encrypted'
-                  : 'tap to verify encryption'}
+                  ? 'verified · end-to-end encrypted'
+                  : 'end-to-end encrypted'}
             </Text>
           </View>
         </Pressable>
 
-        {!isChannel ? (
+        {!isChannel && liveFeatures ? (
           <>
             <IconButton
               accessibilityLabel="Start video call"
@@ -297,9 +301,9 @@ export default function ConversationScreen() {
           value={text}
           onChangeText={setText}
           onSend={handleSend}
-          onAttachPress={() => setAttachVisible(true)}
-          onStickerPress={() => setStickerVisible(true)}
-          onVoice={(sec) => sendVoice(cid, sec)}
+          onAttachPress={liveFeatures ? () => setAttachVisible(true) : undefined}
+          onStickerPress={liveFeatures ? () => setStickerVisible(true) : undefined}
+          onVoice={liveFeatures ? (sec) => sendVoice(cid, sec) : undefined}
           replyingTo={replyingTo ? { author: replyingTo.author, text: replyingTo.text } : undefined}
           onCancelReply={() => setReplyingTo(null)}
           editing={editingId !== null}

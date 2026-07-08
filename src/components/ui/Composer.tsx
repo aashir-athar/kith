@@ -135,9 +135,11 @@ export function Composer({
             paddingTop: theme.space.sm,
             paddingBottom: Math.max(theme.space.sm, insets.bottom),
           }}>
-          <IconButton accessibilityLabel="Add attachment" onPress={onAttachPress} size={40}>
-            <Icon icon={Paperclip} size={22} tone="secondary" />
-          </IconButton>
+          {onAttachPress ? (
+            <IconButton accessibilityLabel="Add attachment" onPress={onAttachPress} size={40}>
+              <Icon icon={Paperclip} size={22} tone="secondary" />
+            </IconButton>
+          ) : null}
 
           <View
             style={{
@@ -194,11 +196,11 @@ export function Composer({
               }}>
               <Icon icon={ArrowUp} size={22} tone="onAccent" strokeWidth={2.6} />
             </Pressable>
-          ) : (
+          ) : onVoice ? (
             <IconButton accessibilityLabel="Record voice message" size={40} onPress={() => setRecording(true)}>
               <Icon icon={Mic} size={22} tone="secondary" />
             </IconButton>
-          )}
+          ) : null}
         </View>
       )}
     </View>
