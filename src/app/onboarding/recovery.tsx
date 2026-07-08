@@ -1,145 +1,84 @@
-// Recovery. A hardware-backed PIN is the default (never seed-phrase-or-lose-everything).
-// Choosing a method opens a real set-and-confirm flow; Finish is gated until one is set, so
-// the account is genuinely secured before onboarding completes.
+// Recovery. There is one honest recovery path in a zero-knowledge messenger: a phrase you hold.
+// The identity is derived from a twelve-word seed, so writing it down is what lets a new phone sign
+// back in. We create the account here (which mints the phrase) and then require you to back it up
+// before onboarding completes; no PIN theatre, nothing claims "set" until it is.
 
 import { router } from 'expo-router';
-import { KeyRound, Lock, type LucideIcon } from 'lucide-react-native';
-import { Alert, Pressable, View } from 'react-native';
+import { KeyRound, ShieldCheck } from 'lucide-react-native';
+import { useState } from 'react';
+import { Alert, View } from 'react-native';
 
 import { BackHeader } from '@/components/layout/BackHeader';
 import { Screen } from '@/components/layout/Screen';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { OnboardingSteps } from '@/components/ui/OnboardingSteps';
+import { Surface } from '@/components/ui/Surface';
 import { Text } from '@/components/ui/Text';
+import { bootstrapIdentity, hasIdentity } from '@/crypto/e2e';
 import { BACKEND_ENABLED } from '@/net/config';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { useTheme } from '@/theme/ThemeProvider';
 
-function Option({
-  selected,
-  icon,
-  title,
-  hint,
-  onPress,
-}: {
-  selected: boolean;
-  icon: LucideIcon;
-  title: string;
-  hint: string;
-  onPress: () => void;
-}) {
+function Point({ icon, title, body }: { icon: typeof KeyRound; title: string; body: string }) {
   const theme = useTheme();
   return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
-      accessibilityLabel={title}
-      onPress={onPress}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: theme.space.md,
-        padding: theme.space.lg,
-        borderRadius: theme.radius.md,
-        borderWidth: 1,
-        borderColor: selected ? theme.colors.accent : theme.colors.hairline,
-        // Low-alpha coral selection tint (a selection state, not a decorative wash), paired with
-        // the leading radio dot so state survives a glance and colour-blindness.
-        backgroundColor: selected ? 'rgba(255,90,44,0.10)' : theme.colors.surface,
-      }}>
-      <View
-        style={{
-          width: 20,
-          height: 20,
-          borderRadius: 10,
-          borderWidth: 2,
-          borderColor: selected ? theme.colors.accent : theme.colors.inkTertiary,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-        {selected ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: theme.colors.accent }} /> : null}
-      </View>
-      <Icon icon={icon} tone={selected ? 'accent' : 'secondary'} />
+    <View style={{ flexDirection: 'row', gap: theme.space.md, alignItems: 'flex-start' }}>
+      <Icon icon={icon} tone="accent" />
       <View style={{ flex: 1 }}>
         <Text variant="bodyStrong">{title}</Text>
         <Text variant="footnote" tone="secondary">
-          {hint}
+          {body}
         </Text>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
 export default function RecoveryScreen() {
   const theme = useTheme();
-  const complete = useSessionStore((s) => s.completeOnboarding);
-  const method = useSessionStore((s) => s.recoveryMethod);
   const registerWithServer = useSessionStore((s) => s.registerWithServer);
+  const serverToken = useSessionStore((s) => s.serverToken);
   const user = useSessionStore((s) => s.currentUser);
+  const [busy, setBusy] = useState(false);
+
+  const create = async () => {
+    setBusy(true);
+    try {
+      if (BACKEND_ENABLED) {
+        if (!serverToken) await registerWithServer(user.username, user.displayName);
+      } else if (!(await hasIdentity())) {
+        await bootstrapIdentity();
+      }
+    } catch {
+      setBusy(false);
+      Alert.alert('Could not create your account', 'The relay is unreachable. Check your connection and try again.');
+      return;
+    }
+    setBusy(false);
+    router.push({ pathname: '/recovery-phrase', params: { onboarding: '1' } });
+  };
 
   return (
     <Screen edges={['top']}>
       <BackHeader />
       <OnboardingSteps current={2} />
-      <View style={{ flex: 1, paddingHorizontal: theme.space.xl, gap: theme.space.lg }}>
+      <View style={{ flex: 1, paddingHorizontal: theme.space.xl, gap: theme.space.xl }}>
         <View style={{ gap: theme.space.sm }}>
-          <Text variant="displayLg">Secure your account</Text>
+          <Text variant="displayLg">Your key to get back in</Text>
           <Text variant="body" tone="secondary">
-            Lose your phone, keep your messages. Set one now.
+            Your account lives in a twelve-word recovery phrase. It is the one way back if you lose
+            this phone, so you will save it next.
           </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Learn how recovery works"
-            onPress={() => router.push('/security-explainer')}>
-            <Text variant="footnote" tone="accent">
-              Learn how recovery works
-            </Text>
-          </Pressable>
         </View>
 
-        <View accessibilityRole="radiogroup" accessibilityLabel="Recovery method" style={{ gap: theme.space.sm }}>
-          <Option
-            selected={method === 'pin'}
-            icon={Lock}
-            title="Recovery PIN"
-            hint="Recommended. Hardware backed, guess limited."
-            onPress={() => router.push('/recovery-pin')}
-          />
-          <Option
-            selected={method === 'phrase'}
-            icon={KeyRound}
-            title="Recovery phrase"
-            hint="Advanced. You hold the only copy."
-            onPress={() => router.push('/recovery-phrase')}
-          />
-        </View>
-
-        {method === 'none' ? (
-          <Text variant="footnote" tone="warning">
-            Choose one to continue. Nothing is secured until you do.
-          </Text>
-        ) : null}
+        <Surface variant="flat" style={{ padding: theme.space.lg, gap: theme.space.lg }}>
+          <Point icon={KeyRound} title="You hold the only copy" body="The phrase is generated on this device and never leaves it. Kith cannot see it or reset it." />
+          <Point icon={ShieldCheck} title="It restores everything you send next" body="Enter it on a new phone to sign back in as you and pick up your conversations." />
+        </Surface>
 
         <View style={{ flex: 1 }} />
-        <Button
-          label="Finish"
-          variant="primary"
-          fullWidth
-          disabled={method === 'none'}
-          onPress={async () => {
-            if (BACKEND_ENABLED) {
-              try {
-                await registerWithServer(user.username, user.displayName);
-              } catch {
-                Alert.alert('Could not create your account', 'The relay is unreachable. Check your connection and try again.');
-                return;
-              }
-            }
-            complete();
-            router.replace('/');
-          }}
-        />
+        <Button label={busy ? 'Creating your account' : 'Create account and save phrase'} variant="primary" fullWidth disabled={busy} onPress={create} />
         <View style={{ height: theme.space['3xl'] }} />
       </View>
     </Screen>

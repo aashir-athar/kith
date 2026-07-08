@@ -14,6 +14,17 @@ const SPK = 'kith.spk';
 const OPKS = 'kith.opks';
 const SESSION = 'kith.session';
 const DEK = 'kith.dek';
+const MNEMONIC = 'kith.mnemonic';
+
+/** The recovery phrase, kept so the user can view it again to back it up. Like every secret here,
+ * it never leaves secure-store and is never uploaded. */
+export async function saveMnemonic(mnemonic: string): Promise<void> {
+  await SecureStore.setItemAsync(MNEMONIC, mnemonic);
+}
+
+export async function loadMnemonic(): Promise<string | null> {
+  return SecureStore.getItemAsync(MNEMONIC);
+}
 
 /** The local data-encryption key (32 bytes) that protects the on-device message store. Lives
  * only in secure-store; generated once on first use. */
@@ -73,5 +84,5 @@ export async function loadSession(): Promise<StoredSession | null> {
 }
 
 export async function clearAll(): Promise<void> {
-  await Promise.all([IK, IKDH, SPK, OPKS, SESSION].map((k) => SecureStore.deleteItemAsync(k)));
+  await Promise.all([IK, IKDH, SPK, OPKS, SESSION, MNEMONIC].map((k) => SecureStore.deleteItemAsync(k)));
 }

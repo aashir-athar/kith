@@ -57,6 +57,15 @@ export function derivePublics(ikSecret: Uint8Array, ikDhSecret: Uint8Array): { i
   return { ikPub: ed25519.getPublicKey(ikSecret), ikDhPub: x25519.getPublicKey(ikDhSecret) };
 }
 
+/** Deterministically derive the identity key pairs from a BIP39 seed. This is what makes an
+ * account recoverable from a written-down phrase with no server-side secret: the same seed always
+ * yields the same identity, so a new device can re-authenticate as the same user. */
+export function identityFromSeed(seed: Uint8Array): IdentityKeyPairs {
+  const ikSecret = hkdf(sha256, seed, new Uint8Array(0), ascii('kith-identity-ed25519-v1'), 32);
+  const ikDhSecret = hkdf(sha256, seed, new Uint8Array(0), ascii('kith-identity-x25519-v1'), 32);
+  return { ikSecret, ikPub: ed25519.getPublicKey(ikSecret), ikDhSecret, ikDhPub: x25519.getPublicKey(ikDhSecret) };
+}
+
 export function generateX25519(random: RandomBytes): { secret: Uint8Array; pub: Uint8Array } {
   const secret = random(32);
   return { secret, pub: x25519.getPublicKey(secret) };

@@ -4,7 +4,7 @@
 import { create } from 'zustand';
 
 import { api } from '@/api/client';
-import { bootstrapIdentity, hasIdentity, signChallenge } from '@/crypto/e2e';
+import { bootstrapIdentity, hasIdentity, restoreFromPhrase, signChallenge } from '@/crypto/e2e';
 import { loadSession, saveSession } from '@/crypto/keystore';
 import { me } from '@/lib/mockData';
 import { BACKEND_ENABLED } from '@/net/config';
@@ -13,7 +13,7 @@ import type { User } from '@/types/models';
 interface SessionState {
   currentUser: User;
   onboarded: boolean;
-  recoveryMethod: 'none' | 'pin' | 'phrase';
+  recoveryMethod: 'none' | 'phrase';
   serverToken: string | null;
   serverUserId: string | null;
   serverDeviceId: string | null;
@@ -22,10 +22,11 @@ interface SessionState {
   setDisplayName: (displayName: string) => void;
   setBio: (bio: string) => void;
   setAvatarUrl: (avatarUrl: string | undefined) => void;
-  setRecoveryMethod: (method: 'none' | 'pin' | 'phrase') => void;
+  setRecoveryMethod: (method: 'none' | 'phrase') => void;
   completeOnboarding: () => void;
   registerWithServer: (username: string, displayName: string) => Promise<void>;
   loginWithServer: (username: string) => Promise<void>;
+  restoreWithPhrase: (username: string, phrase: string) => Promise<void>;
   restoreServerSession: () => Promise<void>;
 }
 
@@ -73,6 +74,30 @@ export const useSessionStore = create<SessionState>((set) => ({
       serverUserId: session.userId,
       serverDeviceId: session.deviceId,
       onboarded: true,
+      currentUser: { ...state.currentUser, username, displayName },
+    }));
+  },
+  restoreWithPhrase: async (username, phrase) => {
+    // New device: derive the identity from the phrase (and mint fresh prekeys), prove control of it
+    // to log in, then publish the new prekeys so peers can seal to this device again.
+    const rotation = await restoreFromPhrase(phrase);
+    const { challenge } = await api.challenge(username);
+    const signature = await signChallenge(challenge);
+    const session = await api.verify({ username, challenge, signature });
+    await saveSession({ token: session.token, userId: session.userId, deviceId: session.deviceId });
+    await api.rotateKeys(session.token, rotation);
+    let displayName = username;
+    try {
+      displayName = (await api.lookupUser(session.token, username)).displayName;
+    } catch {
+      // fall back to the handle
+    }
+    set((state) => ({
+      serverToken: session.token,
+      serverUserId: session.userId,
+      serverDeviceId: session.deviceId,
+      onboarded: true,
+      recoveryMethod: 'phrase',
       currentUser: { ...state.currentUser, username, displayName },
     }));
   },

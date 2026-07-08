@@ -57,7 +57,6 @@ function RootNavigator() {
         <Stack.Screen name="security-explainer" options={{ presentation: 'modal' }} />
         <Stack.Screen name="my-code" options={{ presentation: 'modal' }} />
         <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="recovery-pin" options={{ presentation: 'modal' }} />
         <Stack.Screen name="recovery-phrase" options={{ presentation: 'modal' }} />
         <Stack.Screen name="call/[id]" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="media/[id]" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />

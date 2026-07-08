@@ -1,6 +1,6 @@
-// Sign back in on this device. The identity key is already in the secure store, so we re-verify
-// it by signing a server challenge; no PIN theatre. Cross-device restore (recovering the key from
-// a PIN/phrase on a fresh device) is a later addition, and the screen says so honestly.
+// Sign back in. Two honest paths: on the device that already holds your keys, just re-verify the
+// identity by signing a server challenge (no password). On a new phone, paste your twelve-word
+// recovery phrase to rebuild the identity, then we log you in and re-publish your keys.
 
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -21,8 +21,40 @@ export default function RestoreScreen() {
   const setUsername = useSessionStore((s) => s.setUsername);
   const complete = useSessionStore((s) => s.completeOnboarding);
   const loginWithServer = useSessionStore((s) => s.loginWithServer);
+  const restoreWithPhrase = useSessionStore((s) => s.restoreWithPhrase);
   const [handle, setHandle] = useState('');
-  const ready = handle.trim().length >= 3;
+  const [phrase, setPhrase] = useState('');
+  const [busy, setBusy] = useState(false);
+  const ready = handle.trim().length >= 3 && !busy;
+  const hasPhrase = phrase.trim().length > 0;
+
+  const submit = async () => {
+    const username = handle.trim();
+    if (!BACKEND_ENABLED) {
+      setUsername(username);
+      complete();
+      router.replace('/');
+      return;
+    }
+    setBusy(true);
+    try {
+      if (hasPhrase) {
+        await restoreWithPhrase(username, phrase);
+      } else {
+        await loginWithServer(username);
+      }
+      router.replace('/');
+    } catch {
+      Alert.alert(
+        'Could not sign in',
+        hasPhrase
+          ? 'Check the username and that all twelve words are correct and in order.'
+          : 'On a new phone, paste your recovery phrase below. Otherwise, check the username and that this device holds your keys.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <Screen edges={['top']}>
@@ -31,7 +63,8 @@ export default function RestoreScreen() {
         <View style={{ gap: theme.space.sm }}>
           <Text variant="displayLg">Sign back in</Text>
           <Text variant="body" tone="secondary">
-            Your keys are already on this device. Enter your username and we re-verify it is you, no password to type.
+            On this phone, just your username. On a new phone, add your recovery phrase and we rebuild
+            your account.
           </Text>
         </View>
 
@@ -54,31 +87,36 @@ export default function RestoreScreen() {
               style={{ flex: 1, color: theme.colors.ink, fontFamily: fontFamily.body, fontSize: 17 }}
             />
           </Surface>
+        </View>
+
+        <View style={{ gap: theme.space.xs }}>
+          <Text variant="caption" tone="secondary" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>
+            Recovery phrase
+          </Text>
+          <Surface variant="flat" style={{ paddingHorizontal: theme.space.lg, paddingVertical: theme.space.md }}>
+            <TextInput
+              value={phrase}
+              onChangeText={setPhrase}
+              autoCapitalize="none"
+              autoCorrect={false}
+              multiline
+              placeholder="Twelve words, separated by spaces"
+              placeholderTextColor={theme.colors.inkTertiary}
+              style={{ color: theme.colors.ink, fontFamily: fontFamily.body, fontSize: 17, minHeight: 72 }}
+            />
+          </Surface>
           <Text variant="footnote" tone="tertiary">
-            New phone? Restoring from a recovery PIN or phrase is coming soon.
+            Only needed on a new phone. Leave it blank on the device that already has your keys.
           </Text>
         </View>
 
         <View style={{ flex: 1 }} />
         <Button
-          label="Sign in on this device"
+          label={busy ? 'Signing in' : hasPhrase ? 'Restore on this phone' : 'Sign in on this device'}
           variant="primary"
           fullWidth
           disabled={!ready}
-          onPress={async () => {
-            if (BACKEND_ENABLED) {
-              try {
-                await loginWithServer(handle);
-              } catch {
-                Alert.alert('Could not sign in', 'Check the username, or that this device holds your keys. Restoring on a new device is not available yet.');
-                return;
-              }
-            } else {
-              setUsername(handle);
-              complete();
-            }
-            router.replace('/');
-          }}
+          onPress={submit}
         />
         <View style={{ height: theme.space['3xl'] }} />
       </View>

@@ -1,7 +1,7 @@
 // REST client for the Kith relay. Base URL comes from EXPO_PUBLIC_API_URL (set per environment:
 // a LAN IP for a real device, 10.0.2.2 for the Android emulator, localhost for iOS simulator).
 
-import type { ConversationSummary, MessageDTO, PreKeyBundle, RegisterRequest, SessionResponse, UserPublic } from '@kith/shared';
+import type { ConversationSummary, MessageDTO, PreKeyBundle, RegisterRequest, RotateKeysRequest, SessionResponse, UserPublic } from '@kith/shared';
 
 const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8787';
 
@@ -35,6 +35,7 @@ export const api = {
   bundle: (token: string, username: string) => get<PreKeyBundle>(`/keys/bundle/${encodeURIComponent(username)}`, token),
   replenish: (token: string, oneTimePreKeys: { id: string; pub: string }[]) =>
     post<{ ok: boolean }>('/keys/replenish', { oneTimePreKeys }, token),
+  rotateKeys: (token: string, body: RotateKeysRequest) => post<{ ok: boolean }>('/keys/rotate', body, token),
   ticket: (token: string) => post<{ ticket: string; expiresAt: number }>('/rt/ticket', {}, token),
   createDirect: (token: string, username: string) => post<DirectConversation>('/conversations/direct', { username }, token),
   listConversations: (token: string) => get<{ conversations: ConversationSummary[] }>('/conversations', token),

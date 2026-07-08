@@ -16,7 +16,7 @@ export default function AccountScreen() {
   const theme = useTheme();
   const user = useSessionStore((s) => s.currentUser);
   const recoveryMethod = useSessionStore((s) => s.recoveryMethod);
-  const recoveryLabel = recoveryMethod === 'pin' ? 'On' : recoveryMethod === 'phrase' ? 'Phrase' : 'Not set';
+  const recoveryLabel = recoveryMethod === 'phrase' ? 'Backed up' : 'Not backed up';
 
   const divider = (
     <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.colors.hairline, marginLeft: theme.space.xl }} />
@@ -42,7 +42,7 @@ export default function AccountScreen() {
           {divider}
           <SettingsRow label="Display name" value={user.displayName} onPress={() => router.push('/settings/profile')} />
           {divider}
-          <SettingsRow label="Recovery PIN" value={recoveryLabel} onPress={() => router.push('/settings/recovery')} />
+          <SettingsRow label="Recovery phrase" value={recoveryLabel} onPress={() => router.push('/settings/recovery')} />
         </Surface>
 
         <ListSectionLabel label="Data" />

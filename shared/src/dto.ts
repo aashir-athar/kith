@@ -48,6 +48,14 @@ export const ReplenishPreKeysRequest = z.object({
 });
 export type ReplenishPreKeysRequest = z.infer<typeof ReplenishPreKeysRequest>;
 
+/** Replace this device's prekey material wholesale. Used after a phrase-restore on a new device,
+ * where the old signed/one-time prekey secrets are gone, so the server must be handed a fresh set. */
+export const RotateKeysRequest = z.object({
+  spk: SignedPreKey,
+  oneTimePreKeys: z.array(OneTimePreKey).min(1).max(200),
+});
+export type RotateKeysRequest = z.infer<typeof RotateKeysRequest>;
+
 export const UserPublic = z.object({
   id: z.string(),
   username: z.string(),

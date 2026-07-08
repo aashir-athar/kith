@@ -10,6 +10,7 @@ import {
   envelopeToWire,
   generateIdentity,
   generateX25519,
+  identityFromSeed,
   open,
   type PreKeyBundleBytes,
   type RecipientKeys,
@@ -79,4 +80,22 @@ test('the wrong recipient cannot open', () => {
 test('an invalid signed-prekey signature is rejected at seal', () => {
   const bob = setupRecipient();
   assert.throws(() => seal(enc('x'), sender(), { ...bob.bundle, spkSig: rnd(64) }, rnd), /signed prekey/);
+});
+
+test('identityFromSeed is deterministic and recovers the same account', () => {
+  const seed = rnd(64);
+  const a = identityFromSeed(seed);
+  const b = identityFromSeed(seed);
+  // Same phrase (seed) on a new device yields the same identity keys, which is what lets the
+  // server verify a restored device against the originally-registered ikPub.
+  assert.deepEqual(a.ikPub, b.ikPub);
+  assert.deepEqual(a.ikDhPub, b.ikDhPub);
+  assert.notDeepEqual(a.ikPub, identityFromSeed(rnd(64)).ikPub);
+});
+
+test('a seed-derived identity can seal and be opened', () => {
+  const bob = setupRecipient();
+  const alice = identityFromSeed(rnd(64));
+  const env = seal(enc('from a recovered identity'), { ikPub: alice.ikPub, ikDhPub: alice.ikDhPub, ikDhSecret: alice.ikDhSecret }, bob.bundle, rnd);
+  assert.equal(dec(open(env, bob.keys)), 'from a recovered identity');
 });

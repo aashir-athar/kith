@@ -16,12 +16,12 @@ const SECTIONS = [
   {
     icon: Lock,
     title: 'How encryption works',
-    body: 'Every message, call, and group is encrypted on your device before it leaves. Our servers relay ciphertext they cannot read. There is no phone number tying the account to you, and no backdoor key.',
+    body: 'Every message is encrypted on your device before it leaves, and our servers relay ciphertext they cannot read. There is no phone number tying the account to you, and no backdoor key.',
   },
   {
     icon: KeyRound,
     title: 'How recovery works',
-    body: 'Your account key is protected by a recovery PIN or a recovery phrase that only you hold. A PIN lives in the device secure enclave and is rate limited against guessing. A phrase is twelve words you keep offline. Lose both and no one, us included, can restore your history. That is the trade-off real privacy asks for.',
+    body: 'Your account is a twelve-word recovery phrase that only you hold. It is generated on your device and never leaves it. Enter it on a new phone to sign back in as you. Lose it and no one, us included, can restore your account. That is the trade-off real privacy asks for.',
   },
   {
     icon: Users,

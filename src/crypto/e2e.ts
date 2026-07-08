@@ -7,8 +7,8 @@ import {
   envelopeFromWire,
   envelopeToWire,
   fromHex,
-  generateIdentity,
   generateX25519,
+  identityFromSeed,
   type MessageEnvelope,
   open,
   type PreKeyBundle,
@@ -20,44 +20,68 @@ import {
   toHex,
 } from '@kith/shared';
 
+import { generateMnemonic, isValidMnemonic, mnemonicToSeed, normalizeMnemonic } from './mnemonic';
 import { randomBytes } from './random';
 import * as store from './keystore';
 
 const OPK_COUNT = 20;
 
-export interface RegistrationMaterial {
-  ikPub: string;
-  ikDhPub: string;
+/** A fresh signed prekey + batch of one-time prekeys, publics only (secrets are already saved). */
+export interface PreKeyMaterial {
   spk: { id: string; pub: string; sig: string };
   oneTimePreKeys: { id: string; pub: string }[];
 }
 
-/** Generate the identity + prekeys, persist the secrets, return the public material to upload. */
-export async function bootstrapIdentity(): Promise<RegistrationMaterial> {
-  const id = generateIdentity(randomBytes);
-  await store.saveIdentity(id.ikSecret, id.ikDhSecret);
+export interface RegistrationMaterial extends PreKeyMaterial {
+  ikPub: string;
+  ikDhPub: string;
+}
 
+/** Mint a signed prekey + one-time prekeys, persist their secrets, return the publics to upload.
+ * Shared by first registration and by post-restore rotation. */
+async function freshPreKeys(ikSecret: Uint8Array): Promise<PreKeyMaterial> {
   const spk = generateX25519(randomBytes);
-  const spkId = 's0';
-  const spkSig = signPreKey(spk.pub, id.ikSecret);
+  const spkId = `s_${toHex(randomBytes(4))}`;
+  const spkSig = signPreKey(spk.pub, ikSecret);
   await store.saveSignedPreKey(spkId, spk.secret);
 
   const opkSecrets: Record<string, string> = {};
   const oneTimePreKeys: { id: string; pub: string }[] = [];
   for (let i = 0; i < OPK_COUNT; i += 1) {
     const k = generateX25519(randomBytes);
-    const kid = `o${i}`;
+    const kid = `o_${toHex(randomBytes(4))}`;
     opkSecrets[kid] = toHex(k.secret);
     oneTimePreKeys.push({ id: kid, pub: toHex(k.pub) });
   }
   await store.saveOneTimePreKeys(opkSecrets);
+  return { spk: { id: spkId, pub: toHex(spk.pub), sig: toHex(spkSig) }, oneTimePreKeys };
+}
 
-  return {
-    ikPub: toHex(id.ikPub),
-    ikDhPub: toHex(id.ikDhPub),
-    spk: { id: spkId, pub: toHex(spk.pub), sig: toHex(spkSig) },
-    oneTimePreKeys,
-  };
+/** Create a brand-new identity: mint a recovery phrase, derive the identity from it, persist both,
+ * and return the public material to upload. The phrase is the only backup, and it never leaves the
+ * device. */
+export async function bootstrapIdentity(): Promise<RegistrationMaterial> {
+  const mnemonic = generateMnemonic();
+  await store.saveMnemonic(mnemonic);
+  const id = identityFromSeed(mnemonicToSeed(mnemonic));
+  await store.saveIdentity(id.ikSecret, id.ikDhSecret);
+  const prekeys = await freshPreKeys(id.ikSecret);
+  return { ikPub: toHex(id.ikPub), ikDhPub: toHex(id.ikDhPub), spk: prekeys.spk, oneTimePreKeys: prekeys.oneTimePreKeys };
+}
+
+/** Recover the identity from a written-down phrase on a new device, and mint fresh prekeys to
+ * publish (the previous device's prekey secrets are gone). Caller logs in by key, then rotates. */
+export async function restoreFromPhrase(phrase: string): Promise<PreKeyMaterial> {
+  if (!isValidMnemonic(phrase)) throw new Error('invalid recovery phrase');
+  const id = identityFromSeed(mnemonicToSeed(phrase));
+  await store.saveMnemonic(normalizeMnemonic(phrase));
+  await store.saveIdentity(id.ikSecret, id.ikDhSecret);
+  return freshPreKeys(id.ikSecret);
+}
+
+/** The stored recovery phrase, so the user can re-view and back it up. */
+export async function getRecoveryPhrase(): Promise<string | null> {
+  return store.loadMnemonic();
 }
 
 export async function hasIdentity(): Promise<boolean> {

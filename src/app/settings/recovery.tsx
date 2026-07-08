@@ -1,7 +1,8 @@
-// Recovery settings. Shows the real, honest recovery state and lets you set or change it.
+// Recovery settings. One honest path: the recovery phrase. Shows whether it has been backed up and
+// lets you view it again to write it down.
 
 import { router } from 'expo-router';
-import { KeyRound, Lock } from 'lucide-react-native';
+import { KeyRound } from 'lucide-react-native';
 import { ScrollView } from 'react-native';
 
 import { BackHeader } from '@/components/layout/BackHeader';
@@ -15,32 +16,24 @@ import { useTheme } from '@/theme/ThemeProvider';
 export default function RecoverySettingsScreen() {
   const theme = useTheme();
   const method = useSessionStore((s) => s.recoveryMethod);
+  const backedUp = method === 'phrase';
 
-  const status =
-    method === 'pin'
-      ? 'A recovery PIN is set. Losing this phone will not lose your history.'
-      : method === 'phrase'
-        ? 'A recovery phrase is set. You hold the only copy.'
-        : 'No recovery is set yet. Right now, losing this phone loses your encrypted history.';
+  const status = backedUp
+    ? 'Your recovery phrase is your way back on a new phone. Kith never sees it, so keep your copy offline.'
+    : 'Back up your recovery phrase. Until you do, losing this phone means losing this account.';
 
   return (
     <Screen edges={['top']}>
       <BackHeader title="Recovery" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: theme.space.xl, paddingBottom: theme.space['6xl'], gap: theme.space.lg }}>
-        <Text variant="body" tone={method === 'none' ? 'warning' : 'secondary'}>
+        <Text variant="body" tone={backedUp ? 'secondary' : 'warning'}>
           {status}
         </Text>
         <Surface variant="flat" style={{ overflow: 'hidden' }}>
           <SettingsRow
-            icon={Lock}
-            label="Set a recovery PIN"
-            value={method === 'pin' ? 'On' : undefined}
-            onPress={() => router.push('/recovery-pin')}
-          />
-          <SettingsRow
             icon={KeyRound}
-            label="Use a recovery phrase"
-            value={method === 'phrase' ? 'On' : undefined}
+            label="View recovery phrase"
+            value={backedUp ? 'Backed up' : 'Not backed up'}
             onPress={() => router.push('/recovery-phrase')}
           />
         </Surface>
