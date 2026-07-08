@@ -1,6 +1,6 @@
 // TanStack Query client. Conservative defaults tuned for a messaging app: short staleness,
-// no window-focus refetch (native), bounded retries. Message data is local-first (op-sqlite);
-// Query is for server-derived reads (directory lookups, media URLs, presence snapshots).
+// no window-focus refetch (native), bounded retries. Message data is local-first (the chat store
+// persisted encrypted-at-rest); Query is for server-derived reads (directory lookups, media).
 
 import { QueryClient } from '@tanstack/react-query';
 

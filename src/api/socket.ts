@@ -12,6 +12,7 @@ export class KithSocket {
   private openHandlers = new Set<() => void>();
   private closed = false;
   private backoff = 1000;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private ticketUrl: () => Promise<string>) {}
 
@@ -58,7 +59,9 @@ export class KithSocket {
   }
 
   private scheduleReconnect(): void {
-    setTimeout(() => {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
       if (!this.closed) void this.connect();
     }, this.backoff);
     this.backoff = Math.min(this.backoff * 2, 15000);
@@ -74,6 +77,12 @@ export class KithSocket {
 
   close(): void {
     this.closed = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.handlers.clear();
+    this.openHandlers.clear();
     this.ws?.close();
     this.ws = null;
   }

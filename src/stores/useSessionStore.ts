@@ -77,8 +77,14 @@ export const useSessionStore = create<SessionState>((set) => ({
     }));
   },
   restoreServerSession: async () => {
-    const stored = await loadSession();
-    if (stored) set({ serverToken: stored.token, serverUserId: stored.userId, serverDeviceId: stored.deviceId, onboarded: true, sessionRestored: true });
-    else set({ sessionRestored: true });
+    try {
+      const stored = await loadSession();
+      if (stored) set({ serverToken: stored.token, serverUserId: stored.userId, serverDeviceId: stored.deviceId, onboarded: true });
+    } catch {
+      // corrupt or unavailable secure store: fall through to onboarding rather than strand the splash
+    } finally {
+      // always release the splash gate, even on failure
+      set({ sessionRestored: true });
+    }
   },
 }));
