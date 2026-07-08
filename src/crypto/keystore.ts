@@ -6,11 +6,24 @@
 import { fromHex, toHex } from '@kith/shared';
 import * as SecureStore from 'expo-secure-store';
 
+import { randomBytes } from './random';
+
 const IK = 'kith.ik';
 const IKDH = 'kith.ikdh';
 const SPK = 'kith.spk';
 const OPKS = 'kith.opks';
 const SESSION = 'kith.session';
+const DEK = 'kith.dek';
+
+/** The local data-encryption key (32 bytes) that protects the on-device message store. Lives
+ * only in secure-store; generated once on first use. */
+export async function getOrCreateDataKey(): Promise<Uint8Array> {
+  const existing = await SecureStore.getItemAsync(DEK);
+  if (existing) return fromHex(existing);
+  const key = randomBytes(32);
+  await SecureStore.setItemAsync(DEK, toHex(key));
+  return key;
+}
 
 export interface StoredSession {
   token: string;

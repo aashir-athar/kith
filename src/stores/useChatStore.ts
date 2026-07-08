@@ -3,6 +3,7 @@
 // advances sending -> sent -> delivered; the real MessageTransport will drive the same path.
 
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { api } from '@/api/client';
 import { openFrom } from '@/crypto/e2e';
@@ -10,6 +11,7 @@ import { newId } from '@/lib/id';
 import { conversationPeer, conversations as seedConversations, me, messagesByConversation as seedMessages, registerUser, usersById } from '@/lib/mockData';
 import { BACKEND_ENABLED } from '@/net/config';
 import { messaging } from '@/net/messaging';
+import { encryptedStorage } from '@/net/secureStorage';
 import { useSessionStore } from '@/stores/useSessionStore';
 import type { Conversation, DeliveryStatus, Message, MessageKind, Reaction } from '@/types/models';
 
@@ -75,7 +77,9 @@ function previewFor(kind: MessageKind, text?: string): string {
   }
 }
 
-export const useChatStore = create<ChatState>((set, get) => {
+export const useChatStore = create<ChatState>()(
+  persist(
+    (set, get) => {
   const advance = (conversationId: string, id: string) => {
     const step = (status: DeliveryStatus, delay: number) =>
       setTimeout(() => {
@@ -502,5 +506,13 @@ export const useChatStore = create<ChatState>((set, get) => {
         return null;
       }
     },
-  };
-});
+      };
+    },
+    {
+      name: 'kith-chat',
+      storage: createJSONStorage(() => encryptedStorage),
+      // Persist only the local-first message data (encrypted at rest); actions are recreated.
+      partialize: (state) => ({ conversations: state.conversations, messages: state.messages }),
+    },
+  ),
+);

@@ -87,6 +87,16 @@ export function verifyBytes(message: Uint8Array, sig: Uint8Array, ikPub: Uint8Ar
   }
 }
 
+/** Symmetric AEAD with a local data key (used for encrypt-at-rest of the local message store). */
+export function encryptSym(key: Uint8Array, plaintext: Uint8Array, random: RandomBytes): { nonce: Uint8Array; ciphertext: Uint8Array } {
+  const nonce = random(24);
+  return { nonce, ciphertext: xchacha20poly1305(key, nonce).encrypt(plaintext) };
+}
+
+export function decryptSym(key: Uint8Array, nonce: Uint8Array, ciphertext: Uint8Array): Uint8Array {
+  return xchacha20poly1305(key, nonce).decrypt(ciphertext);
+}
+
 type Header = Omit<EnvelopeBytes, 'nonce' | 'ciphertext'>;
 
 /** Canonical AAD binding the routing header so a relay cannot swap the DH path. */
