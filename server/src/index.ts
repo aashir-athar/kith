@@ -9,6 +9,7 @@ import { Hono } from 'hono';
 
 import { env } from './env';
 import { startHeartbeat, wsRoute, wss } from './gateway';
+import { account } from './routes/account';
 import { auth } from './routes/auth';
 import { conversationsRoute } from './routes/conversations';
 import { keys } from './routes/keys';
@@ -24,6 +25,7 @@ app.route('/keys', keys);
 app.route('/rt', rt);
 app.route('/conversations', conversationsRoute);
 app.route('/users', usersRoute);
+app.route('/account', account);
 app.get('/ws', wsRoute);
 
 const server = serve({ fetch: app.fetch, port: env.PORT, websocket: { server: wss } }, (info) => {

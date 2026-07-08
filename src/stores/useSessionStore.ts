@@ -5,7 +5,7 @@ import { create } from 'zustand';
 
 import { api } from '@/api/client';
 import { bootstrapIdentity, hasIdentity, restoreFromPhrase, signChallenge } from '@/crypto/e2e';
-import { loadSession, saveSession } from '@/crypto/keystore';
+import { clearAll, loadSession, saveSession } from '@/crypto/keystore';
 import { me } from '@/lib/mockData';
 import { BACKEND_ENABLED } from '@/net/config';
 import type { User } from '@/types/models';
@@ -28,6 +28,7 @@ interface SessionState {
   loginWithServer: (username: string) => Promise<void>;
   restoreWithPhrase: (username: string, phrase: string) => Promise<void>;
   restoreServerSession: () => Promise<void>;
+  wipeLocal: () => Promise<void>;
 }
 
 export const useSessionStore = create<SessionState>((set) => ({
@@ -111,5 +112,19 @@ export const useSessionStore = create<SessionState>((set) => ({
       // always release the splash gate, even on failure
       set({ sessionRestored: true });
     }
+  },
+  wipeLocal: async () => {
+    // Destroy every on-device secret (identity, prekeys, data key, recovery phrase, session) and
+    // reset session state. In backend mode this drops back to onboarding; the caller also clears
+    // the encrypted local message store.
+    await clearAll();
+    set({
+      serverToken: null,
+      serverUserId: null,
+      serverDeviceId: null,
+      onboarded: !BACKEND_ENABLED,
+      recoveryMethod: 'none',
+      currentUser: me,
+    });
   },
 }));

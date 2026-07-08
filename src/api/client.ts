@@ -21,6 +21,12 @@ async function get<T>(path: string, token: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+async function del<T>(path: string, token: string): Promise<T> {
+  const res = await fetch(BASE + path, { method: 'DELETE', headers: { authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`DELETE ${path} -> ${res.status}`);
+  return (await res.json()) as T;
+}
+
 export interface DirectConversation {
   id: string;
   kind: string;
@@ -43,4 +49,5 @@ export const api = {
     get<{ messages: MessageDTO[] }>(`/conversations/${conversationId}/messages${before ? `?before=${before}` : ''}`, token),
   user: (token: string, id: string) => get<UserPublic>(`/users/${encodeURIComponent(id)}`, token),
   lookupUser: (token: string, username: string) => get<UserPublic>(`/users/lookup/${encodeURIComponent(username)}`, token),
+  deleteAccount: (token: string) => del<{ ok: boolean }>('/account', token),
 };
