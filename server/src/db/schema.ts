@@ -103,6 +103,22 @@ export const conversationParticipants = pgTable(
   (t) => [primaryKey({ columns: [t.conversationId, t.userId] }), index('participants_user_idx').on(t.userId)],
 );
 
+// Remote push tokens (Expo push tokens). Public routing handles, not secrets: they let the relay
+// wake a device that is not connected. One row per device token; a token belongs to one user.
+export const pushTokens = pgTable(
+  'push_tokens',
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    token: text().notNull(),
+    platform: text(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('push_tokens_token_idx').on(t.token), index('push_tokens_user_idx').on(t.userId)],
+);
+
 export const messages = pgTable(
   'messages',
   {

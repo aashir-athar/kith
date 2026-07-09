@@ -13,6 +13,7 @@ import { account } from './routes/account';
 import { auth } from './routes/auth';
 import { conversationsRoute } from './routes/conversations';
 import { keys } from './routes/keys';
+import { push } from './routes/push';
 import { rt } from './routes/rt';
 import { usersRoute } from './routes/users';
 
@@ -26,6 +27,7 @@ app.route('/rt', rt);
 app.route('/conversations', conversationsRoute);
 app.route('/users', usersRoute);
 app.route('/account', account);
+app.route('/push', push);
 app.get('/ws', wsRoute);
 
 const server = serve({ fetch: app.fetch, port: env.PORT, websocket: { server: wss } }, (info) => {

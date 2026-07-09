@@ -50,4 +50,7 @@ export const api = {
   user: (token: string, id: string) => get<UserPublic>(`/users/${encodeURIComponent(id)}`, token),
   lookupUser: (token: string, username: string) => get<UserPublic>(`/users/lookup/${encodeURIComponent(username)}`, token),
   deleteAccount: (token: string) => del<{ ok: boolean }>('/account', token),
+  registerPush: (authToken: string, pushToken: string, platform: string) =>
+    post<{ ok: boolean }>('/push/register', { token: pushToken, platform }, authToken),
+  unregisterPush: (authToken: string, pushToken: string) => post<{ ok: boolean }>('/push/unregister', { token: pushToken }, authToken),
 };

@@ -56,6 +56,13 @@ export const RotateKeysRequest = z.object({
 });
 export type RotateKeysRequest = z.infer<typeof RotateKeysRequest>;
 
+/** Register or drop a remote push token (Expo push token) for the authenticated device. */
+export const PushRegisterRequest = z.object({
+  token: z.string().min(1).max(256),
+  platform: z.enum(['ios', 'android', 'web']).optional(),
+});
+export type PushRegisterRequest = z.infer<typeof PushRegisterRequest>;
+
 export const UserPublic = z.object({
   id: z.string(),
   username: z.string(),

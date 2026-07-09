@@ -9,6 +9,7 @@ import { api } from '@/api/client';
 import { oneTimePreKeyCount, replenishPreKeys } from '@/crypto/e2e';
 import { BACKEND_ENABLED } from '@/net/config';
 import { messaging } from '@/net/messaging';
+import { addNotificationTapHandler, registerForPush } from '@/net/push';
 import { useChatStore } from '@/stores/useChatStore';
 import { useSessionStore } from '@/stores/useSessionStore';
 
@@ -30,11 +31,18 @@ export function MessagingProvider({ children }: { children: ReactNode }) {
     if (BACKEND_ENABLED) void restoreServerSession();
   }, [restoreServerSession]);
 
+  // Route a tapped message notification to its conversation. Set up once; cleaned up on unmount.
+  useEffect(() => {
+    if (!BACKEND_ENABLED) return;
+    return addNotificationTapHandler((serverId) => useChatStore.getState().conversations.find((c) => c.serverId === serverId)?.id);
+  }, []);
+
   useEffect(() => {
     if (!BACKEND_ENABLED || !token) return;
     const chat = useChatStore.getState();
     void chat.hydrateFromServer();
     void topUpPreKeys(token);
+    void registerForPush(token);
     messaging.init(token, {
       ensureConversation: (serverConvId, senderId) => useChatStore.getState().ensureServerConversation(serverConvId, senderId),
       onIncoming: (m) =>

@@ -11,6 +11,7 @@ import { WebSocketServer } from 'ws';
 import { redeemTicket, type Session } from './lib/session';
 import { participantIds } from './lib/conversations';
 import { advanceCursor, deleteMessageAt, editMessage, isParticipant, persistMessage, syncAfter } from './lib/messages';
+import { notifyNewMessage } from './lib/push';
 import { redis, redisSub } from './redis';
 
 /** ws server handed to serve({ websocket: { server } }); also used for heartbeats. */
@@ -71,6 +72,17 @@ async function publishToOthers(conversationId: string, exceptUserId: string, fra
   await Promise.all(others.map((p) => redis.publish(userChannel(p), J(frame))));
 }
 
+// Remote push for a new message: wake only recipients with no live presence (backgrounded or
+// force-quit). Connected devices already got the frame over the socket. Content-free by design.
+async function notifyOfflineRecipients(conversationId: string, exceptUserId: string): Promise<void> {
+  const others = (await participantIds(conversationId)).filter((p) => p !== exceptUserId);
+  const offline: string[] = [];
+  for (const p of others) {
+    if (!(await redis.get(presenceKey(p)))) offline.push(p);
+  }
+  if (offline.length > 0) await notifyNewMessage(offline, { conversationId });
+}
+
 async function handleFrame(conn: Conn, raw: string): Promise<void> {
   let json: unknown;
   try {
@@ -85,6 +97,8 @@ async function handleFrame(conn: Conn, raw: string): Promise<void> {
   }
   const frame = parsed.data;
   const { userId, deviceId } = conn.session;
+  // Keep presence fresh on any activity so we do not push to a user who is actively connected.
+  void redis.set(presenceKey(userId), '1', 'EX', 60);
 
   switch (frame.t) {
     case 'ping':
@@ -107,6 +121,8 @@ async function handleFrame(conn: Conn, raw: string): Promise<void> {
         envelope: rec.envelope,
         createdAt: rec.createdAt,
       });
+      // Fire-and-forget: reaching a force-quit device must not block the sender's ack.
+      void notifyOfflineRecipients(frame.conversationId, userId).catch(() => undefined);
       return;
     }
 
