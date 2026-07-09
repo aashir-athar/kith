@@ -6,6 +6,8 @@
 import { api } from '@/api/client';
 import { KithSocket } from '@/api/socket';
 import { openFrom, sealTo } from '@/crypto/e2e';
+import { newId } from '@/lib/id';
+import { decodeContent, encodeContent } from '@/net/content';
 import type { ServerFrame } from '@kith/shared';
 
 export interface IncomingMessage {
@@ -19,6 +21,8 @@ export interface IncomingMessage {
 export interface Handlers {
   ensureConversation: (serverConversationId: string, senderId: string) => Promise<void>;
   onIncoming: (msg: IncomingMessage) => void;
+  onReaction: (info: { conversationId: string; targetSeq: number; key: string; remove: boolean; senderId: string }) => void;
+  onPin: (info: { conversationId: string; targetSeq: number; pinned: boolean }) => void;
   onSent: (info: { clientId: string; conversationId: string; seq: number; id: string; createdAt: number }) => void;
   onReceipt: (info: { conversationId: string; seq: number; userId: string; kind: 'delivered' | 'read' }) => void;
   onEdited: (info: { conversationId: string; seq: number; text: string; editedAt: number }) => void;
@@ -48,9 +52,15 @@ class Messaging {
     if (!this.handlers) return;
     if (frame.t === 'message') {
       try {
-        const text = await openFrom(frame.envelope);
+        const content = decodeContent(await openFrom(frame.envelope));
         await this.handlers.ensureConversation(frame.conversationId, frame.senderId);
-        this.handlers.onIncoming({ conversationId: frame.conversationId, seq: frame.seq, senderId: frame.senderId, text, createdAt: frame.createdAt });
+        if (content.t === 'reaction') {
+          this.handlers.onReaction({ conversationId: frame.conversationId, targetSeq: content.targetSeq, key: content.key, remove: content.remove, senderId: frame.senderId });
+        } else if (content.t === 'pin') {
+          this.handlers.onPin({ conversationId: frame.conversationId, targetSeq: content.targetSeq, pinned: content.pinned });
+        } else {
+          this.handlers.onIncoming({ conversationId: frame.conversationId, seq: frame.seq, senderId: frame.senderId, text: content.body, createdAt: frame.createdAt });
+        }
         this.socket?.send({ t: 'delivered', conversationId: frame.conversationId, seq: frame.seq });
       } catch {
         // undecryptable (not addressed to this device); skip
@@ -61,7 +71,8 @@ class Messaging {
       this.handlers.onReceipt({ conversationId: frame.conversationId, seq: frame.seq, userId: frame.userId, kind: frame.kind });
     } else if (frame.t === 'edited') {
       try {
-        const text = await openFrom(frame.envelope);
+        const content = decodeContent(await openFrom(frame.envelope));
+        const text = content.t === 'text' ? content.body : '';
         this.handlers.onEdited({ conversationId: frame.conversationId, seq: frame.seq, text, editedAt: frame.editedAt });
       } catch {
         // undecryptable edit; skip
@@ -74,7 +85,7 @@ class Messaging {
   async sendText(conversationId: string, peerUsername: string, clientId: string, text: string): Promise<boolean> {
     if (!this.token || !this.socket) return false;
     const bundle = await api.bundle(this.token, peerUsername);
-    const envelope = await sealTo(bundle, text);
+    const envelope = await sealTo(bundle, encodeContent({ t: 'text', body: text }));
     return this.socket.send({ t: 'send', conversationId, clientId, envelope });
   }
 
@@ -82,8 +93,24 @@ class Messaging {
   async sendEdit(conversationId: string, peerUsername: string, targetSeq: number, newText: string): Promise<boolean> {
     if (!this.token || !this.socket) return false;
     const bundle = await api.bundle(this.token, peerUsername);
-    const envelope = await sealTo(bundle, newText);
+    const envelope = await sealTo(bundle, encodeContent({ t: 'text', body: newText }));
     return this.socket.send({ t: 'edit', conversationId, targetSeq, envelope });
+  }
+
+  /** A reaction and a pin ride the normal send path as sealed control content; the relay stores and
+   * fans them out as opaque messages, and the peer applies them to the target by sequence. */
+  async sendReaction(conversationId: string, peerUsername: string, targetSeq: number, key: string, remove: boolean): Promise<boolean> {
+    if (!this.token || !this.socket) return false;
+    const bundle = await api.bundle(this.token, peerUsername);
+    const envelope = await sealTo(bundle, encodeContent({ t: 'reaction', targetSeq, key, remove }));
+    return this.socket.send({ t: 'send', conversationId, clientId: newId(), envelope });
+  }
+
+  async sendPin(conversationId: string, peerUsername: string, targetSeq: number, pinned: boolean): Promise<boolean> {
+    if (!this.token || !this.socket) return false;
+    const bundle = await api.bundle(this.token, peerUsername);
+    const envelope = await sealTo(bundle, encodeContent({ t: 'pin', targetSeq, pinned }));
+    return this.socket.send({ t: 'send', conversationId, clientId: newId(), envelope });
   }
 
   /** Delete-for-everyone the message at targetSeq. */

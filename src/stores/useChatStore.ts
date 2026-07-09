@@ -10,6 +10,7 @@ import { openFrom } from '@/crypto/e2e';
 import { newId } from '@/lib/id';
 import { conversationPeer, conversations as seedConversations, me, messagesByConversation as seedMessages, registerUser, usersById } from '@/lib/mockData';
 import { BACKEND_ENABLED } from '@/net/config';
+import { decodeContent } from '@/net/content';
 import { messaging } from '@/net/messaging';
 import { encryptedStorage } from '@/net/secureStorage';
 import { useSessionStore } from '@/stores/useSessionStore';
@@ -46,6 +47,8 @@ interface ChatState {
   createGroup: (name: string, memberIds: string[]) => string;
   createDirect: (userId: string) => string;
   receiveServerMessage: (input: { serverConversationId: string; seq: number; senderId: string; text: string; createdAt: number }) => void;
+  applyRemoteReaction: (input: { serverConversationId: string; targetSeq: number; key: string; remove: boolean; senderId: string }) => void;
+  applyRemotePin: (input: { serverConversationId: string; targetSeq: number; pinned: boolean }) => void;
   applySentAck: (input: { clientId: string; seq: number; id: string }) => void;
   applyReceipt: (input: { conversationId: string; seq: number; userId: string; kind: 'delivered' | 'read' }) => void;
   applyEdited: (input: { conversationId: string; seq: number; text: string; editedAt: number }) => void;
@@ -55,6 +58,19 @@ interface ChatState {
   hydrateHistory: (localConversationId: string) => Promise<void>;
   syncAll: () => void;
   startDirectWithUsername: (username: string) => Promise<string | null>;
+}
+
+/** Idempotent set-op on a message's reactions: ensure a user's reaction with `key` is present, or
+ * absent when `remove`. Used for both local taps and replayed remote reactions. */
+function reactionSetOp(reactions: Reaction[] | undefined, userId: string, key: string, remove: boolean): Reaction[] {
+  const list = reactions ?? [];
+  if (remove) {
+    return list.map((r) => (r.key === key ? { ...r, userIds: r.userIds.filter((u) => u !== userId) } : r)).filter((r) => r.userIds.length > 0);
+  }
+  if (list.some((r) => r.key === key)) {
+    return list.map((r) => (r.key === key && !r.userIds.includes(userId) ? { ...r, userIds: [...r.userIds, userId] } : r));
+  }
+  return [...list, { key, userIds: [userId] }];
 }
 
 function previewFor(kind: MessageKind, text?: string): string {
@@ -188,31 +204,29 @@ export const useChatStore = create<ChatState>()(
         poll: { question, multiple: false, totalVotes: 0, options: options.map((label, i) => ({ id: `po${i}`, label, votes: 0 })) },
       }),
 
-    addReaction: (conversationId, messageId, key) =>
-      update(conversationId, messageId, (m) => {
-        const reactions = m.reactions ?? [];
-        const has = reactions.some((r) => r.key === key);
-        const next: Reaction[] = has
-          ? reactions
-              .map((r) =>
-                r.key === key
-                  ? {
-                      ...r,
-                      userIds: r.userIds.includes(me.id)
-                        ? r.userIds.filter((u) => u !== me.id)
-                        : [...r.userIds, me.id],
-                    }
-                  : r,
-              )
-              .filter((r) => r.userIds.length > 0)
-          : [...reactions, { key, userIds: [me.id] }];
-        return { ...m, reactions: next };
-      }),
+    addReaction: (conversationId, messageId, key) => {
+      const msg = (get().messages[conversationId] ?? []).find((m) => m.id === messageId);
+      const remove = !!msg?.reactions?.some((r) => r.key === key && r.userIds.includes(me.id));
+      update(conversationId, messageId, (m) => ({ ...m, reactions: reactionSetOp(m.reactions, me.id, key, remove) }));
+      const conv = get().conversations.find((c) => c.id === conversationId);
+      const peerUsername = conv ? (conv.peerUsername ?? conversationPeer(conv)?.username) : undefined;
+      if (BACKEND_ENABLED && conv?.serverId && peerUsername && msg?.serverSeq != null) {
+        void messaging.sendReaction(conv.serverId, peerUsername, msg.serverSeq, key, remove);
+      }
+    },
 
     toggleStar: (conversationId, messageId) =>
       update(conversationId, messageId, (m) => ({ ...m, starred: !m.starred })),
-    togglePinMessage: (conversationId, messageId) =>
-      update(conversationId, messageId, (m) => ({ ...m, pinned: !m.pinned })),
+    togglePinMessage: (conversationId, messageId) => {
+      const msg = (get().messages[conversationId] ?? []).find((m) => m.id === messageId);
+      const pinned = !msg?.pinned;
+      update(conversationId, messageId, (m) => ({ ...m, pinned }));
+      const conv = get().conversations.find((c) => c.id === conversationId);
+      const peerUsername = conv ? (conv.peerUsername ?? conversationPeer(conv)?.username) : undefined;
+      if (BACKEND_ENABLED && conv?.serverId && peerUsername && msg?.serverSeq != null) {
+        void messaging.sendPin(conv.serverId, peerUsername, msg.serverSeq, pinned);
+      }
+    },
     editMessage: (conversationId, messageId, text) => {
       update(conversationId, messageId, (m) => ({ ...m, text: text.trim(), editedAt: new Date().toISOString() }));
       const conv = get().conversations.find((c) => c.id === conversationId);
@@ -246,31 +260,27 @@ export const useChatStore = create<ChatState>()(
       }
     },
 
-    forwardMessage: (fromId, messageId, toId) =>
-      set((state) => {
-        const src = (state.messages[fromId] ?? []).find((m) => m.id === messageId);
-        if (!src) return {};
-        const forwarded: Message = {
-          ...src,
-          id: newId(),
-          conversationId: toId,
-          senderId: me.id,
-          createdAt: new Date().toISOString(),
-          status: 'sent',
-          forwardedFrom: src.senderId,
-          reactions: undefined,
-          starred: false,
-          pinned: false,
-        };
-        return {
-          messages: { ...state.messages, [toId]: [...(state.messages[toId] ?? []), forwarded] },
-          conversations: state.conversations.map((c) =>
-            c.id === toId
-              ? { ...c, lastMessagePreview: previewFor(forwarded.kind, forwarded.text), lastMessageAt: forwarded.createdAt }
-              : c,
-          ),
-        };
-      }),
+    forwardMessage: (fromId, messageId, toId) => {
+      const src = (get().messages[fromId] ?? []).find((m) => m.id === messageId);
+      if (!src) return;
+      const conv = get().conversations.find((c) => c.id === toId);
+      const peerUsername = conv ? (conv.peerUsername ?? conversationPeer(conv)?.username) : undefined;
+      const real = BACKEND_ENABLED && conv?.kind === 'direct' && !!peerUsername && src.kind === 'text' && !!src.text;
+      const forwarded: Message = {
+        ...src,
+        id: newId(),
+        conversationId: toId,
+        senderId: me.id,
+        createdAt: new Date().toISOString(),
+        status: real ? 'sending' : 'sent',
+        forwardedFrom: src.senderId,
+        reactions: undefined,
+        starred: false,
+        pinned: false,
+      };
+      push(toId, forwarded);
+      if (real && peerUsername && src.text) void sendReal(toId, peerUsername, forwarded.id, src.text);
+    },
 
     markRead: (conversationId) => {
       const conv = get().conversations.find((c) => c.id === conversationId);
@@ -353,6 +363,31 @@ export const useChatStore = create<ChatState>()(
       });
       set((state) => ({
         conversations: state.conversations.map((c) => (c.id === conv.id ? { ...c, unreadCount: c.unreadCount + 1, lastMessagePreview: text } : c)),
+      }));
+    },
+
+    applyRemoteReaction: ({ serverConversationId, targetSeq, key, remove, senderId }) => {
+      const conv = get().conversations.find((c) => c.serverId === serverConversationId);
+      if (!conv) return;
+      const reactorLocalId = conversationPeer(conv)?.id ?? senderId;
+      set((state) => ({
+        messages: {
+          ...state.messages,
+          [conv.id]: (state.messages[conv.id] ?? []).map((m) =>
+            m.serverSeq === targetSeq ? { ...m, reactions: reactionSetOp(m.reactions, reactorLocalId, key, remove) } : m,
+          ),
+        },
+      }));
+    },
+
+    applyRemotePin: ({ serverConversationId, targetSeq, pinned }) => {
+      const conv = get().conversations.find((c) => c.serverId === serverConversationId);
+      if (!conv) return;
+      set((state) => ({
+        messages: {
+          ...state.messages,
+          [conv.id]: (state.messages[conv.id] ?? []).map((m) => (m.serverSeq === targetSeq ? { ...m, pinned } : m)),
+        },
       }));
     },
 
@@ -460,6 +495,8 @@ export const useChatStore = create<ChatState>()(
       const peerLocalId = conversationPeer(conv)?.id ?? localConversationId;
       const { messages: dtos } = await api.history(token, conv.serverId);
       const loaded: Message[] = [];
+      const reactions: { targetSeq: number; key: string; remove: boolean }[] = [];
+      const pins: { targetSeq: number; pinned: boolean }[] = [];
       for (const dto of dtos) {
         // Own sent messages are sealed to the peer (not re-decryptable here); they live locally.
         if (dto.senderId === myServerId || hasSeq(localConversationId, dto.seq)) continue;
@@ -468,13 +505,21 @@ export const useChatStore = create<ChatState>()(
           continue;
         }
         try {
-          const text = await openFrom(dto.envelope);
+          const content = decodeContent(await openFrom(dto.envelope));
+          if (content.t === 'reaction') {
+            reactions.push({ targetSeq: content.targetSeq, key: content.key, remove: content.remove });
+            continue;
+          }
+          if (content.t === 'pin') {
+            pins.push({ targetSeq: content.targetSeq, pinned: content.pinned });
+            continue;
+          }
           loaded.push({
             id: dto.id,
             conversationId: localConversationId,
             senderId: peerLocalId,
             kind: 'text',
-            text,
+            text: content.body,
             editedAt: dto.editedAt ? new Date(dto.editedAt).toISOString() : undefined,
             createdAt: new Date(dto.createdAt).toISOString(),
             status: 'read',
@@ -484,10 +529,16 @@ export const useChatStore = create<ChatState>()(
           // undecryptable; skip
         }
       }
-      if (loaded.length === 0) return;
+      if (loaded.length === 0 && reactions.length === 0 && pins.length === 0) return;
       set((state) => {
-        const merged = [...(state.messages[localConversationId] ?? []), ...loaded].sort((a, b) => (a.serverSeq ?? 0) - (b.serverSeq ?? 0));
-        return { messages: { ...state.messages, [localConversationId]: merged } };
+        let list = [...(state.messages[localConversationId] ?? []), ...loaded].sort((a, b) => (a.serverSeq ?? 0) - (b.serverSeq ?? 0));
+        for (const r of reactions) {
+          list = list.map((m) => (m.serverSeq === r.targetSeq ? { ...m, reactions: reactionSetOp(m.reactions, peerLocalId, r.key, r.remove) } : m));
+        }
+        for (const p of pins) {
+          list = list.map((m) => (m.serverSeq === p.targetSeq ? { ...m, pinned: p.pinned } : m));
+        }
+        return { messages: { ...state.messages, [localConversationId]: list } };
       });
     },
 
