@@ -29,6 +29,9 @@ export default function ChatInfoScreen() {
   const conversation = useChatStore((s) => s.conversations.find((c) => c.id === cid));
   const messages = useChatStore((s) => s.messages[cid]) ?? [];
   const toggleArchive = useChatStore((s) => s.toggleArchive);
+  const blockUser = useChatStore((s) => s.blockUser);
+  const unblockUser = useChatStore((s) => s.unblockUser);
+  const blockedIds = useChatStore((s) => s.blockedUserIds);
   const [muted, setMuted] = useState(conversation?.muted ?? false);
 
   if (!conversation) {
@@ -49,6 +52,38 @@ export default function ChatInfoScreen() {
   const members: User[] = conversation.participantIds
     .map((pid) => usersById[pid])
     .filter((u): u is User => !!u);
+
+  const blocked = peer ? blockedIds.includes(peer.id) : false;
+
+  const confirmBlock = () => {
+    if (!peer) return;
+    Alert.alert('Block', `Block ${title}? Their messages stop reaching you and this chat is hidden.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Block',
+        style: 'destructive',
+        onPress: () => {
+          blockUser(peer.id);
+          router.back();
+        },
+      },
+    ]);
+  };
+
+  const confirmReport = () => {
+    if (!peer) return;
+    Alert.alert('Report and block', `Report ${title}? This blocks them and removes the chat from your device.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Report',
+        style: 'destructive',
+        onPress: () => {
+          blockUser(peer.id);
+          router.back();
+        },
+      },
+    ]);
+  };
 
   const divider = (
     <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.colors.hairline, marginLeft: theme.space.xl }} />
@@ -183,8 +218,6 @@ export default function ChatInfoScreen() {
             right={<Toggle value={muted} onValueChange={setMuted} accessibilityLabel="Mute notifications" />}
           />
           {divider}
-          <SettingsRow label="Disappearing messages" value="Off" />
-          {divider}
           <SettingsRow
             label={conversation.archived ? 'Unarchive chat' : 'Archive chat'}
             icon={Archive}
@@ -195,27 +228,23 @@ export default function ChatInfoScreen() {
           />
         </Surface>
 
-        <ListSectionLabel label="Safety" />
-        <Surface variant="flat" style={{ marginHorizontal: theme.space.xl, overflow: 'hidden' }}>
-          <SettingsRow
-            label={`Block ${peer?.displayName ?? title}`}
-            danger
-            onPress={() =>
-              Alert.alert('Block', `Block ${title}? They will not be able to message or call you.`, [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Block', style: 'destructive', onPress: () => undefined },
-              ])
-            }
-          />
-          {divider}
-          <SettingsRow
-            label="Report"
-            danger
-            onPress={() =>
-              Alert.alert('Report', 'Reported content is verified with cryptographic provenance, without exposing the rest of your chat.')
-            }
-          />
-        </Surface>
+        {peer ? (
+          <>
+            <ListSectionLabel label="Safety" />
+            <Surface variant="flat" style={{ marginHorizontal: theme.space.xl, overflow: 'hidden' }}>
+              {blocked ? (
+                <SettingsRow
+                  label={`Unblock ${peer.displayName}`}
+                  onPress={() => unblockUser(peer.id)}
+                />
+              ) : (
+                <SettingsRow label={`Block ${peer.displayName}`} danger onPress={confirmBlock} />
+              )}
+              {divider}
+              <SettingsRow label="Report and block" danger onPress={confirmReport} />
+            </Surface>
+          </>
+        ) : null}
       </ScrollView>
     </Screen>
   );

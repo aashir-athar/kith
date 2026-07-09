@@ -75,8 +75,10 @@ export default function NewChatScreen() {
           ListHeaderComponent={
             <View>
               <Surface variant="flat" style={{ marginHorizontal: theme.space.xl, overflow: 'hidden' }}>
-                <SettingsRow icon={UserPlus} label="New group" onPress={() => router.push('/new-group')} />
-                <SettingsRow icon={Users} label="New community" onPress={() => router.push('/new-community')} />
+                {/* Groups and communities are not wired to the relay yet, so they are offered only in
+                    the offline demo, never as dead controls in a live build. */}
+                {!BACKEND_ENABLED ? <SettingsRow icon={UserPlus} label="New group" onPress={() => router.push('/new-group')} /> : null}
+                {!BACKEND_ENABLED ? <SettingsRow icon={Users} label="New community" onPress={() => router.push('/new-community')} /> : null}
                 <SettingsRow icon={QrCode} label="Scan a code" onPress={() => router.push('/scan')} />
               </Surface>
               {BACKEND_ENABLED ? (

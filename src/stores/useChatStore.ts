@@ -22,6 +22,7 @@ interface SendExtras {
 interface ChatState {
   conversations: Conversation[];
   messages: Record<string, Message[]>;
+  blockedUserIds: string[];
   sendText: (conversationId: string, text: string, extras?: SendExtras) => void;
   sendVoice: (conversationId: string, durationSec: number) => void;
   sendImage: (conversationId: string, mediaUrl: string) => void;
@@ -40,6 +41,8 @@ interface ChatState {
   markRead: (conversationId: string) => void;
   togglePin: (conversationId: string) => void;
   toggleArchive: (conversationId: string) => void;
+  blockUser: (userId: string) => void;
+  unblockUser: (userId: string) => void;
   createGroup: (name: string, memberIds: string[]) => string;
   createDirect: (userId: string) => string;
   receiveServerMessage: (input: { serverConversationId: string; seq: number; senderId: string; text: string; createdAt: number }) => void;
@@ -155,6 +158,7 @@ export const useChatStore = create<ChatState>()(
     // In backend mode the list is hydrated from the server; the mock seed is only for offline demo.
     conversations: BACKEND_ENABLED ? [] : seedConversations,
     messages: BACKEND_ENABLED ? {} : seedMessages,
+    blockedUserIds: [],
 
     sendText: (conversationId, text, extras) => {
       const trimmed = text.trim();
@@ -286,6 +290,15 @@ export const useChatStore = create<ChatState>()(
       set((state) => ({
         conversations: state.conversations.map((c) => (c.id === conversationId ? { ...c, archived: !c.archived } : c)),
       })),
+    blockUser: (userId) =>
+      set((state) => ({
+        blockedUserIds: state.blockedUserIds.includes(userId) ? state.blockedUserIds : [...state.blockedUserIds, userId],
+        // Hide any direct thread with them from the active list; their inbound is dropped on arrival.
+        conversations: state.conversations.map((c) =>
+          c.kind === 'direct' && c.participantIds.includes(userId) ? { ...c, archived: true } : c,
+        ),
+      })),
+    unblockUser: (userId) => set((state) => ({ blockedUserIds: state.blockedUserIds.filter((u) => u !== userId) })),
     createGroup: (name, memberIds) => {
       const id = newId();
       const conversation: Conversation = {
@@ -327,6 +340,7 @@ export const useChatStore = create<ChatState>()(
       const conv = get().conversations.find((c) => c.serverId === serverConversationId);
       if (!conv || hasSeq(conv.id, seq)) return;
       const peer = conversationPeer(conv);
+      if (peer && get().blockedUserIds.includes(peer.id)) return; // blocked sender: drop inbound
       push(conv.id, {
         id: newId(),
         conversationId: conv.id,
@@ -519,7 +533,7 @@ export const useChatStore = create<ChatState>()(
       name: 'kith-chat',
       storage: createJSONStorage(() => encryptedStorage),
       // Persist only the local-first message data (encrypted at rest); actions are recreated.
-      partialize: (state) => ({ conversations: state.conversations, messages: state.messages }),
+      partialize: (state) => ({ conversations: state.conversations, messages: state.messages, blockedUserIds: state.blockedUserIds }),
     },
   ),
 );

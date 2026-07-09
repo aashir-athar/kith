@@ -35,6 +35,8 @@ export class KithSocket {
       this.scheduleReconnect();
       return;
     }
+    // close() may have run during the await above; never open an orphaned socket that outlives it.
+    if (this.closed) return;
     const ws = new WebSocket(url);
     this.ws = ws;
     ws.onopen = () => {
