@@ -76,6 +76,7 @@ export default function ConversationScreen() {
   const forwardMessage = useChatStore((s) => s.forwardMessage);
   const markRead = useChatStore((s) => s.markRead);
   const hydrateHistory = useChatStore((s) => s.hydrateHistory);
+  const sweepExpired = useChatStore((s) => s.sweepExpired);
 
   const [text, setText] = useState('');
   const [selected, setSelected] = useState<Message | null>(null);
@@ -115,9 +116,10 @@ export default function ConversationScreen() {
 
   useEffect(() => {
     if (!cid) return;
+    sweepExpired();
     void hydrateHistory(cid);
     markRead(cid);
-  }, [cid, markRead, hydrateHistory]);
+  }, [cid, markRead, hydrateHistory, sweepExpired]);
 
   const handleSend = () => {
     const trimmed = text.trim();

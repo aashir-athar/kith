@@ -74,6 +74,8 @@ export interface Message {
   starred?: boolean;
   pinned?: boolean;
   serverSeq?: number;
+  // Set when the conversation has a disappearing timer: the message is removed locally once passed.
+  expiresAt?: ISO;
 }
 
 export type StoryKind = 'image' | 'text';
@@ -109,6 +111,9 @@ export interface Conversation {
   encrypted: boolean;
   archived?: boolean;
   verified?: boolean;
+  // Disappearing-messages timer in seconds (0 or undefined = off). Messages sent while set are
+  // removed from both devices once the timer passes.
+  disappearSeconds?: number;
   // Set when this conversation is backed by the relay: the server conversation id and the peer's
   // handle (used to fetch the peer's prekey bundle when sending).
   serverId?: ID;

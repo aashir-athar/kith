@@ -2,7 +2,7 @@
 // per-chat settings, and safety controls. Reached from the conversation header.
 
 import { router, useLocalSearchParams } from 'expo-router';
-import { Archive, Bell, ChevronRight, MessageCircle, Phone, Search, ShieldCheck, Video, type LucideIcon } from 'lucide-react-native';
+import { Archive, Bell, ChevronRight, MessageCircle, Phone, Search, ShieldCheck, Timer, Video, type LucideIcon } from 'lucide-react-native';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { BackHeader } from '@/components/layout/BackHeader';
@@ -21,6 +21,17 @@ import { useChatStore } from '@/stores/useChatStore';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { User } from '@/types/models';
 
+const DISAPPEAR: { label: string; seconds: number }[] = [
+  { label: 'Off', seconds: 0 },
+  { label: '1 hour', seconds: 3600 },
+  { label: '1 day', seconds: 86400 },
+  { label: '1 week', seconds: 604800 },
+];
+
+function disappearLabel(seconds?: number): string {
+  return DISAPPEAR.find((d) => d.seconds === (seconds ?? 0))?.label ?? 'Off';
+}
+
 export default function ChatInfoScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,6 +40,7 @@ export default function ChatInfoScreen() {
   const messages = useChatStore((s) => s.messages[cid]) ?? [];
   const toggleArchive = useChatStore((s) => s.toggleArchive);
   const setConversationMuted = useChatStore((s) => s.setConversationMuted);
+  const setDisappearing = useChatStore((s) => s.setDisappearing);
   const blockUser = useChatStore((s) => s.blockUser);
   const unblockUser = useChatStore((s) => s.unblockUser);
   const blockedIds = useChatStore((s) => s.blockedUserIds);
@@ -54,6 +66,12 @@ export default function ChatInfoScreen() {
     .filter((u): u is User => !!u);
 
   const blocked = peer ? blockedIds.includes(peer.id) : false;
+
+  const chooseDisappearing = () =>
+    Alert.alert('Disappearing messages', 'New messages are removed from both devices after the timer.', [
+      ...DISAPPEAR.map((d) => ({ text: d.label, onPress: () => setDisappearing(cid, d.seconds) })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
 
   const confirmBlock = () => {
     if (!peer) return;
@@ -216,6 +234,13 @@ export default function ChatInfoScreen() {
             icon={Bell}
             onPress={() => setConversationMuted(cid, !muted)}
             right={<Toggle value={muted} onValueChange={(v) => setConversationMuted(cid, v)} accessibilityLabel="Mute notifications" />}
+          />
+          {divider}
+          <SettingsRow
+            label="Disappearing messages"
+            icon={Timer}
+            value={disappearLabel(conversation.disappearSeconds)}
+            onPress={chooseDisappearing}
           />
           {divider}
           <SettingsRow

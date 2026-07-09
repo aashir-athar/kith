@@ -25,6 +25,8 @@ interface ChatState {
   messages: Record<string, Message[]>;
   blockedUserIds: string[];
   verifiedKeys: Record<string, string>;
+  // Server seqs of disappearing messages already removed locally, so they never re-hydrate.
+  expiredSeqs: Record<string, number[]>;
   sendText: (conversationId: string, text: string, extras?: SendExtras) => void;
   sendVoice: (conversationId: string, durationSec: number) => void;
   sendImage: (conversationId: string, mediaUrl: string) => void;
@@ -50,7 +52,10 @@ interface ChatState {
   unblockUser: (userId: string) => void;
   createGroup: (name: string, memberIds: string[]) => string;
   createDirect: (userId: string) => string;
-  receiveServerMessage: (input: { serverConversationId: string; seq: number; senderId: string; text: string; createdAt: number }) => void;
+  setDisappearing: (conversationId: string, seconds: number) => void;
+  sweepExpired: () => void;
+  receiveServerMessage: (input: { serverConversationId: string; seq: number; senderId: string; text: string; createdAt: number; expiresInSec?: number }) => void;
+  applyTimer: (input: { serverConversationId: string; seconds: number }) => void;
   applyRemoteReaction: (input: { serverConversationId: string; targetSeq: number; key: string; remove: boolean; senderId: string }) => void;
   applyRemotePin: (input: { serverConversationId: string; targetSeq: number; pinned: boolean }) => void;
   applySentAck: (input: { clientId: string; seq: number; id: string }) => void;
@@ -135,7 +140,7 @@ export const useChatStore = create<ChatState>()(
 
   // Real send path (BACKEND_ENABLED): resolve the server conversation, seal, and emit. Delivery
   // is confirmed by the server 'sent' ack (applySentAck); failure flips the bubble to retry.
-  const sendReal = async (localConvId: string, peerUsername: string, clientId: string, text: string) => {
+  const sendReal = async (localConvId: string, peerUsername: string, clientId: string, text: string, expiresInSec?: number) => {
     const token = useSessionStore.getState().serverToken;
     if (!token) {
       update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
@@ -148,7 +153,7 @@ export const useChatStore = create<ChatState>()(
         serverId = direct.id;
         set((state) => ({ conversations: state.conversations.map((c) => (c.id === localConvId ? { ...c, serverId: direct.id } : c)) }));
       }
-      const ok = await messaging.sendText(serverId, peerUsername, clientId, text);
+      const ok = await messaging.sendText(serverId, peerUsername, clientId, text, expiresInSec);
       if (!ok) update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
     } catch {
       update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
@@ -180,16 +185,19 @@ export const useChatStore = create<ChatState>()(
     messages: BACKEND_ENABLED ? {} : seedMessages,
     blockedUserIds: [],
     verifiedKeys: {},
+    expiredSeqs: {},
 
     sendText: (conversationId, text, extras) => {
       const trimmed = text.trim();
       if (!trimmed) return;
-      const message: Message = { ...base(conversationId, 'text'), text: trimmed, replyToId: extras?.replyToId };
-      push(conversationId, message);
       const conv = get().conversations.find((c) => c.id === conversationId);
+      const seconds = conv?.disappearSeconds ?? 0;
+      const message: Message = { ...base(conversationId, 'text'), text: trimmed, replyToId: extras?.replyToId };
+      if (seconds > 0) message.expiresAt = new Date(new Date(message.createdAt).getTime() + seconds * 1000).toISOString();
+      push(conversationId, message);
       const peerUsername = conv ? (conv.peerUsername ?? conversationPeer(conv)?.username) : undefined;
       if (BACKEND_ENABLED && conv?.kind === 'direct' && peerUsername) {
-        void sendReal(conversationId, peerUsername, message.id, trimmed);
+        void sendReal(conversationId, peerUsername, message.id, trimmed, seconds > 0 ? seconds : undefined);
       } else {
         advance(conversationId, message.id);
       }
@@ -311,6 +319,43 @@ export const useChatStore = create<ChatState>()(
       const token = useSessionStore.getState().serverToken;
       if (BACKEND_ENABLED && conv?.serverId && token) void api.setMute(token, conv.serverId, muted).catch(() => undefined);
     },
+    setDisappearing: (conversationId, seconds) => {
+      set((state) => ({
+        conversations: state.conversations.map((c) => (c.id === conversationId ? { ...c, disappearSeconds: seconds > 0 ? seconds : undefined } : c)),
+      }));
+      const conv = get().conversations.find((c) => c.id === conversationId);
+      const peerUsername = conv ? (conv.peerUsername ?? conversationPeer(conv)?.username) : undefined;
+      if (BACKEND_ENABLED && conv?.serverId && peerUsername) void messaging.sendTimer(conv.serverId, peerUsername, seconds);
+    },
+    applyTimer: ({ serverConversationId, seconds }) =>
+      set((state) => ({
+        conversations: state.conversations.map((c) => (c.serverId === serverConversationId ? { ...c, disappearSeconds: seconds > 0 ? seconds : undefined } : c)),
+      })),
+    sweepExpired: () => {
+      const now = Date.now();
+      set((state) => {
+        const messages: Record<string, Message[]> = { ...state.messages };
+        const expiredSeqs: Record<string, number[]> = { ...state.expiredSeqs };
+        let changed = false;
+        for (const [cid, list] of Object.entries(state.messages)) {
+          const kept: Message[] = [];
+          const newlyExpired: number[] = [];
+          for (const m of list) {
+            if (m.expiresAt && new Date(m.expiresAt).getTime() <= now) {
+              if (m.serverSeq != null) newlyExpired.push(m.serverSeq);
+            } else {
+              kept.push(m);
+            }
+          }
+          if (kept.length !== list.length) {
+            changed = true;
+            messages[cid] = kept;
+            if (newlyExpired.length > 0) expiredSeqs[cid] = [...(expiredSeqs[cid] ?? []), ...newlyExpired];
+          }
+        }
+        return changed ? { messages, expiredSeqs } : {};
+      });
+    },
     markVerified: (conversationId, peerId, ikPubHex) =>
       set((state) => ({
         verifiedKeys: { ...state.verifiedKeys, [peerId]: ikPubHex },
@@ -378,9 +423,10 @@ export const useChatStore = create<ChatState>()(
       return id;
     },
 
-    receiveServerMessage: ({ serverConversationId, seq, text, createdAt }) => {
+    receiveServerMessage: ({ serverConversationId, seq, text, createdAt, expiresInSec }) => {
       const conv = get().conversations.find((c) => c.serverId === serverConversationId);
       if (!conv || hasSeq(conv.id, seq)) return;
+      if ((get().expiredSeqs[conv.id] ?? []).includes(seq)) return; // already expired locally; do not resurrect
       const peer = conversationPeer(conv);
       if (peer && get().blockedUserIds.includes(peer.id)) return; // blocked sender: drop inbound
       push(conv.id, {
@@ -392,6 +438,7 @@ export const useChatStore = create<ChatState>()(
         createdAt: new Date(createdAt).toISOString(),
         status: 'read',
         serverSeq: seq,
+        expiresAt: expiresInSec ? new Date(createdAt + expiresInSec * 1000).toISOString() : undefined,
       });
       set((state) => ({
         conversations: state.conversations.map((c) => (c.id === conv.id ? { ...c, unreadCount: c.unreadCount + 1, lastMessagePreview: text } : c)),
@@ -526,12 +573,15 @@ export const useChatStore = create<ChatState>()(
       const myServerId = useSessionStore.getState().serverUserId;
       const peerLocalId = conversationPeer(conv)?.id ?? localConversationId;
       const { messages: dtos } = await api.history(token, conv.serverId);
+      const expired = get().expiredSeqs[localConversationId] ?? [];
       const loaded: Message[] = [];
       const reactions: { targetSeq: number; key: string; remove: boolean }[] = [];
       const pins: { targetSeq: number; pinned: boolean }[] = [];
+      let timerSeconds: number | undefined;
       for (const dto of dtos) {
         // Own sent messages are sealed to the peer (not re-decryptable here); they live locally.
-        if (dto.senderId === myServerId || hasSeq(localConversationId, dto.seq)) continue;
+        // Skip anything already expired locally, so disappearing messages never come back.
+        if (dto.senderId === myServerId || hasSeq(localConversationId, dto.seq) || expired.includes(dto.seq)) continue;
         if (dto.deleted) {
           loaded.push({ id: dto.id, conversationId: localConversationId, senderId: peerLocalId, kind: 'text', deleted: true, createdAt: new Date(dto.createdAt).toISOString(), status: 'read', serverSeq: dto.seq });
           continue;
@@ -546,6 +596,10 @@ export const useChatStore = create<ChatState>()(
             pins.push({ targetSeq: content.targetSeq, pinned: content.pinned });
             continue;
           }
+          if (content.t === 'timer') {
+            timerSeconds = content.seconds;
+            continue;
+          }
           loaded.push({
             id: dto.id,
             conversationId: localConversationId,
@@ -556,12 +610,13 @@ export const useChatStore = create<ChatState>()(
             createdAt: new Date(dto.createdAt).toISOString(),
             status: 'read',
             serverSeq: dto.seq,
+            expiresAt: content.expiresInSec ? new Date(dto.createdAt + content.expiresInSec * 1000).toISOString() : undefined,
           });
         } catch {
           // undecryptable; skip
         }
       }
-      if (loaded.length === 0 && reactions.length === 0 && pins.length === 0) return;
+      if (loaded.length === 0 && reactions.length === 0 && pins.length === 0 && timerSeconds === undefined) return;
       set((state) => {
         let list = [...(state.messages[localConversationId] ?? []), ...loaded].sort((a, b) => (a.serverSeq ?? 0) - (b.serverSeq ?? 0));
         for (const r of reactions) {
@@ -570,7 +625,13 @@ export const useChatStore = create<ChatState>()(
         for (const p of pins) {
           list = list.map((m) => (m.serverSeq === p.targetSeq ? { ...m, pinned: p.pinned } : m));
         }
-        return { messages: { ...state.messages, [localConversationId]: list } };
+        return {
+          messages: { ...state.messages, [localConversationId]: list },
+          conversations:
+            timerSeconds === undefined
+              ? state.conversations
+              : state.conversations.map((c) => (c.id === localConversationId ? { ...c, disappearSeconds: timerSeconds > 0 ? timerSeconds : undefined } : c)),
+        };
       });
     },
 
@@ -616,7 +677,13 @@ export const useChatStore = create<ChatState>()(
       name: 'kith-chat',
       storage: createJSONStorage(() => encryptedStorage),
       // Persist only the local-first message data (encrypted at rest); actions are recreated.
-      partialize: (state) => ({ conversations: state.conversations, messages: state.messages, blockedUserIds: state.blockedUserIds, verifiedKeys: state.verifiedKeys }),
+      partialize: (state) => ({
+        conversations: state.conversations,
+        messages: state.messages,
+        blockedUserIds: state.blockedUserIds,
+        verifiedKeys: state.verifiedKeys,
+        expiredSeqs: state.expiredSeqs,
+      }),
     },
   ),
 );

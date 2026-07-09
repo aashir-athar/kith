@@ -16,6 +16,7 @@ export interface IncomingMessage {
   senderId: string;
   text: string;
   createdAt: number;
+  expiresInSec?: number;
 }
 
 export interface Handlers {
@@ -23,6 +24,7 @@ export interface Handlers {
   onIncoming: (msg: IncomingMessage) => void;
   onReaction: (info: { conversationId: string; targetSeq: number; key: string; remove: boolean; senderId: string }) => void;
   onPin: (info: { conversationId: string; targetSeq: number; pinned: boolean }) => void;
+  onTimer: (info: { conversationId: string; seconds: number }) => void;
   onSent: (info: { clientId: string; conversationId: string; seq: number; id: string; createdAt: number }) => void;
   onReceipt: (info: { conversationId: string; seq: number; userId: string; kind: 'delivered' | 'read' }) => void;
   onEdited: (info: { conversationId: string; seq: number; text: string; editedAt: number }) => void;
@@ -58,8 +60,10 @@ class Messaging {
           this.handlers.onReaction({ conversationId: frame.conversationId, targetSeq: content.targetSeq, key: content.key, remove: content.remove, senderId: frame.senderId });
         } else if (content.t === 'pin') {
           this.handlers.onPin({ conversationId: frame.conversationId, targetSeq: content.targetSeq, pinned: content.pinned });
+        } else if (content.t === 'timer') {
+          this.handlers.onTimer({ conversationId: frame.conversationId, seconds: content.seconds });
         } else {
-          this.handlers.onIncoming({ conversationId: frame.conversationId, seq: frame.seq, senderId: frame.senderId, text: content.body, createdAt: frame.createdAt });
+          this.handlers.onIncoming({ conversationId: frame.conversationId, seq: frame.seq, senderId: frame.senderId, text: content.body, createdAt: frame.createdAt, expiresInSec: content.expiresInSec });
         }
         this.socket?.send({ t: 'delivered', conversationId: frame.conversationId, seq: frame.seq });
       } catch {
@@ -82,11 +86,19 @@ class Messaging {
     }
   }
 
-  async sendText(conversationId: string, peerUsername: string, clientId: string, text: string): Promise<boolean> {
+  async sendText(conversationId: string, peerUsername: string, clientId: string, text: string, expiresInSec?: number): Promise<boolean> {
     if (!this.token || !this.socket) return false;
     const bundle = await api.bundle(this.token, peerUsername);
-    const envelope = await sealTo(bundle, encodeContent({ t: 'text', body: text }));
+    const envelope = await sealTo(bundle, encodeContent({ t: 'text', body: text, expiresInSec }));
     return this.socket.send({ t: 'send', conversationId, clientId, envelope });
+  }
+
+  /** Set the conversation's disappearing timer for the peer (seconds; 0 turns it off). */
+  async sendTimer(conversationId: string, peerUsername: string, seconds: number): Promise<boolean> {
+    if (!this.token || !this.socket) return false;
+    const bundle = await api.bundle(this.token, peerUsername);
+    const envelope = await sealTo(bundle, encodeContent({ t: 'timer', seconds }));
+    return this.socket.send({ t: 'send', conversationId, clientId: newId(), envelope });
   }
 
   /** Re-seal the new text and propagate an edit of the message at targetSeq. */

@@ -4,9 +4,10 @@
 // so replaying them on reconnect or history load is idempotent.
 
 export type Content =
-  | { t: 'text'; body: string; replyToSeq?: number }
+  | { t: 'text'; body: string; replyToSeq?: number; expiresInSec?: number }
   | { t: 'reaction'; targetSeq: number; key: string; remove: boolean }
-  | { t: 'pin'; targetSeq: number; pinned: boolean };
+  | { t: 'pin'; targetSeq: number; pinned: boolean }
+  | { t: 'timer'; seconds: number };
 
 export function encodeContent(content: Content): string {
   return JSON.stringify(content);
@@ -23,8 +24,16 @@ export function decodeContent(raw: string): Content {
     if (o.t === 'pin' && typeof o.targetSeq === 'number' && typeof o.pinned === 'boolean') {
       return { t: 'pin', targetSeq: o.targetSeq, pinned: o.pinned };
     }
+    if (o.t === 'timer' && typeof o.seconds === 'number') {
+      return { t: 'timer', seconds: o.seconds };
+    }
     if (o.t === 'text' && typeof o.body === 'string') {
-      return { t: 'text', body: o.body, replyToSeq: typeof o.replyToSeq === 'number' ? o.replyToSeq : undefined };
+      return {
+        t: 'text',
+        body: o.body,
+        replyToSeq: typeof o.replyToSeq === 'number' ? o.replyToSeq : undefined,
+        expiresInSec: typeof o.expiresInSec === 'number' ? o.expiresInSec : undefined,
+      };
     }
   } catch {
     // not JSON: fall through to the text fallback

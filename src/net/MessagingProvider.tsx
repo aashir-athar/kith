@@ -37,6 +37,14 @@ export function MessagingProvider({ children }: { children: ReactNode }) {
     return addNotificationTapHandler((serverId) => useChatStore.getState().conversations.find((c) => c.serverId === serverId)?.id);
   }, []);
 
+  // Remove disappearing messages whose timer has passed, on a steady cadence.
+  useEffect(() => {
+    const sweep = () => useChatStore.getState().sweepExpired();
+    sweep();
+    const timer = setInterval(sweep, 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     if (!BACKEND_ENABLED || !token) return;
     const chat = useChatStore.getState();
@@ -46,9 +54,10 @@ export function MessagingProvider({ children }: { children: ReactNode }) {
     messaging.init(token, {
       ensureConversation: (serverConvId, senderId) => useChatStore.getState().ensureServerConversation(serverConvId, senderId),
       onIncoming: (m) =>
-        useChatStore.getState().receiveServerMessage({ serverConversationId: m.conversationId, seq: m.seq, senderId: m.senderId, text: m.text, createdAt: m.createdAt }),
+        useChatStore.getState().receiveServerMessage({ serverConversationId: m.conversationId, seq: m.seq, senderId: m.senderId, text: m.text, createdAt: m.createdAt, expiresInSec: m.expiresInSec }),
       onReaction: (r) => useChatStore.getState().applyRemoteReaction({ serverConversationId: r.conversationId, targetSeq: r.targetSeq, key: r.key, remove: r.remove, senderId: r.senderId }),
       onPin: (p) => useChatStore.getState().applyRemotePin({ serverConversationId: p.conversationId, targetSeq: p.targetSeq, pinned: p.pinned }),
+      onTimer: (t) => useChatStore.getState().applyTimer({ serverConversationId: t.conversationId, seconds: t.seconds }),
       onSent: (a) => useChatStore.getState().applySentAck({ clientId: a.clientId, seq: a.seq, id: a.id }),
       onReceipt: (r) => useChatStore.getState().applyReceipt(r),
       onEdited: (e) => useChatStore.getState().applyEdited(e),
