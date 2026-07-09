@@ -2,7 +2,7 @@
 // always share exactly one conversation regardless of who starts it.
 
 import type { ConversationSummary } from '@kith/shared';
-import { and, desc, eq, ne } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne } from 'drizzle-orm';
 
 import { db as defaultDb, type Db } from '../db';
 import { conversationParticipants, conversations, messages, users } from '../db/schema';
@@ -41,6 +41,30 @@ export async function participantIds(conversationId: string, db: Db = defaultDb)
     .from(conversationParticipants)
     .where(eq(conversationParticipants.conversationId, conversationId));
   return rows.map((r) => r.userId);
+}
+
+/** Set the caller's mute flag for a conversation (per-participant, so it never affects the peer). */
+export async function setMuted(conversationId: string, userId: string, muted: boolean, db: Db = defaultDb): Promise<void> {
+  await db
+    .update(conversationParticipants)
+    .set({ muted })
+    .where(and(eq(conversationParticipants.conversationId, conversationId), eq(conversationParticipants.userId, userId)));
+}
+
+/** Of the candidate participants, which have muted this conversation (so we skip their push). */
+export async function mutedAmong(conversationId: string, userIds: string[], db: Db = defaultDb): Promise<Set<string>> {
+  if (userIds.length === 0) return new Set();
+  const rows = await db
+    .select({ userId: conversationParticipants.userId })
+    .from(conversationParticipants)
+    .where(
+      and(
+        eq(conversationParticipants.conversationId, conversationId),
+        inArray(conversationParticipants.userId, userIds),
+        eq(conversationParticipants.muted, true),
+      ),
+    );
+  return new Set(rows.map((r) => r.userId));
 }
 
 /** The caller's conversations with peer identity, last message, unread count, and peer cursors. */

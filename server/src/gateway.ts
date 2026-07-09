@@ -9,7 +9,8 @@ import type { WSContext } from 'hono/ws';
 import { WebSocketServer } from 'ws';
 
 import { redeemTicket, type Session } from './lib/session';
-import { participantIds } from './lib/conversations';
+import { blockersAmong, listBlockedIds } from './lib/blocks';
+import { mutedAmong, participantIds } from './lib/conversations';
 import { advanceCursor, deleteMessageAt, editMessage, isParticipant, persistMessage, syncAfter } from './lib/messages';
 import { notifyNewMessage } from './lib/push';
 import { redis, redisSub } from './redis';
@@ -69,15 +70,19 @@ function unregister(conn: Conn): void {
 
 async function publishToOthers(conversationId: string, exceptUserId: string, frame: ServerFrame): Promise<void> {
   const others = (await participantIds(conversationId)).filter((p) => p !== exceptUserId);
-  await Promise.all(others.map((p) => redis.publish(userChannel(p), J(frame))));
+  // A blocked sender's traffic (messages, edits, receipts, typing) never reaches the blocker.
+  const blockers = await blockersAmong(others, exceptUserId);
+  await Promise.all(others.filter((p) => !blockers.has(p)).map((p) => redis.publish(userChannel(p), J(frame))));
 }
 
 // Remote push for a new message: wake only recipients with no live presence (backgrounded or
-// force-quit). Connected devices already got the frame over the socket. Content-free by design.
+// force-quit) who have not blocked the sender or muted the conversation. Content-free by design.
 async function notifyOfflineRecipients(conversationId: string, exceptUserId: string): Promise<void> {
   const others = (await participantIds(conversationId)).filter((p) => p !== exceptUserId);
+  const [blockers, muted] = await Promise.all([blockersAmong(others, exceptUserId), mutedAmong(conversationId, others)]);
+  const eligible = others.filter((p) => !blockers.has(p) && !muted.has(p));
   const offline: string[] = [];
-  for (const p of others) {
+  for (const p of eligible) {
     if (!(await redis.get(presenceKey(p)))) offline.push(p);
   }
   if (offline.length > 0) await notifyNewMessage(offline, { conversationId });
@@ -160,7 +165,7 @@ async function handleFrame(conn: Conn, raw: string): Promise<void> {
     }
 
     case 'sync': {
-      const missed = await syncAfter(frame.conversationId, frame.afterSeq);
+      const missed = await syncAfter(frame.conversationId, frame.afterSeq, 200, undefined, await listBlockedIds(userId));
       for (const m of missed) {
         conn.ws.send(J({ t: 'message', conversationId: m.conversationId, seq: m.seq, id: m.id, senderId: m.senderId, envelope: m.envelope, createdAt: m.createdAt }));
       }

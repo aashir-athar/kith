@@ -142,3 +142,19 @@ export const messages = pgTable(
   // keyset pagination + gap detection both ride this composite unique index
   (t) => [uniqueIndex('messages_conv_seq_idx').on(t.conversationId, t.seq)],
 );
+
+// One row per (blocker, blocked) pair. Enforced at delivery (the relay never forwards or pushes a
+// blocked sender's traffic) and at read (blocked senders are excluded from history and sync).
+export const blocks = pgTable(
+  'blocks',
+  {
+    blockerId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    blockedId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.blockerId, t.blockedId] }), index('blocks_blocker_idx').on(t.blockerId)],
+);

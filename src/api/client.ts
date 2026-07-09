@@ -53,4 +53,8 @@ export const api = {
   registerPush: (authToken: string, pushToken: string, platform: string) =>
     post<{ ok: boolean }>('/push/register', { token: pushToken, platform }, authToken),
   unregisterPush: (authToken: string, pushToken: string) => post<{ ok: boolean }>('/push/unregister', { token: pushToken }, authToken),
+  block: (token: string, username: string) => post<{ ok: boolean }>('/blocks/block', { username }, token),
+  unblock: (token: string, username: string) => post<{ ok: boolean }>('/blocks/unblock', { username }, token),
+  listBlocked: (token: string) => get<{ blocked: UserPublic[] }>('/blocks', token),
+  setMute: (token: string, conversationId: string, muted: boolean) => post<{ ok: boolean }>(`/conversations/${conversationId}/mute`, { muted }, token),
 };

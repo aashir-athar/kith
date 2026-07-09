@@ -11,6 +11,7 @@ import { env } from './env';
 import { startHeartbeat, wsRoute, wss } from './gateway';
 import { account } from './routes/account';
 import { auth } from './routes/auth';
+import { blocksRoute } from './routes/blocks';
 import { conversationsRoute } from './routes/conversations';
 import { keys } from './routes/keys';
 import { push } from './routes/push';
@@ -28,6 +29,7 @@ app.route('/conversations', conversationsRoute);
 app.route('/users', usersRoute);
 app.route('/account', account);
 app.route('/push', push);
+app.route('/blocks', blocksRoute);
 app.get('/ws', wsRoute);
 
 const server = serve({ fetch: app.fetch, port: env.PORT, websocket: { server: wss } }, (info) => {

@@ -6,7 +6,8 @@ import { Hono } from 'hono';
 
 import { db } from '../db';
 import { users } from '../db/schema';
-import { createOrGetDirect, listConversations, participantIds } from '../lib/conversations';
+import { listBlockedIds } from '../lib/blocks';
+import { createOrGetDirect, listConversations, participantIds, setMuted } from '../lib/conversations';
 import { history, isParticipant } from '../lib/messages';
 import { requireAuth, type AuthEnv } from '../middleware/auth';
 
@@ -35,5 +36,17 @@ conversationsRoute.get('/:id/messages', async (c) => {
   if (!(await isParticipant(conversationId, me))) return c.json({ error: 'forbidden' }, 403);
   const beforeParam = c.req.query('before');
   const before = beforeParam !== undefined && Number.isFinite(Number(beforeParam)) ? Number(beforeParam) : null;
-  return c.json({ messages: await history(conversationId, before, 50) });
+  // Exclude messages from anyone the reader has blocked, so a blocked sender never reaches history.
+  const blocked = await listBlockedIds(me);
+  return c.json({ messages: await history(conversationId, before, 50, db, blocked) });
+});
+
+conversationsRoute.post('/:id/mute', async (c) => {
+  const conversationId = c.req.param('id');
+  const me = c.get('session').userId;
+  if (!(await isParticipant(conversationId, me))) return c.json({ error: 'forbidden' }, 403);
+  const body = (await c.req.json().catch(() => null)) as { muted?: unknown } | null;
+  if (typeof body?.muted !== 'boolean') return c.json({ error: 'invalid request' }, 400);
+  await setMuted(conversationId, me, body.muted);
+  return c.json({ ok: true });
 });

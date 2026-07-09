@@ -42,6 +42,7 @@ interface ChatState {
   markRead: (conversationId: string) => void;
   togglePin: (conversationId: string) => void;
   toggleArchive: (conversationId: string) => void;
+  setConversationMuted: (conversationId: string, muted: boolean) => void;
   blockUser: (userId: string) => void;
   unblockUser: (userId: string) => void;
   createGroup: (name: string, memberIds: string[]) => string;
@@ -300,15 +301,31 @@ export const useChatStore = create<ChatState>()(
       set((state) => ({
         conversations: state.conversations.map((c) => (c.id === conversationId ? { ...c, archived: !c.archived } : c)),
       })),
-    blockUser: (userId) =>
+    setConversationMuted: (conversationId, muted) => {
+      set((state) => ({ conversations: state.conversations.map((c) => (c.id === conversationId ? { ...c, muted } : c)) }));
+      const conv = get().conversations.find((c) => c.id === conversationId);
+      const token = useSessionStore.getState().serverToken;
+      if (BACKEND_ENABLED && conv?.serverId && token) void api.setMute(token, conv.serverId, muted).catch(() => undefined);
+    },
+    blockUser: (userId) => {
       set((state) => ({
         blockedUserIds: state.blockedUserIds.includes(userId) ? state.blockedUserIds : [...state.blockedUserIds, userId],
         // Hide any direct thread with them from the active list; their inbound is dropped on arrival.
         conversations: state.conversations.map((c) =>
           c.kind === 'direct' && c.participantIds.includes(userId) ? { ...c, archived: true } : c,
         ),
-      })),
-    unblockUser: (userId) => set((state) => ({ blockedUserIds: state.blockedUserIds.filter((u) => u !== userId) })),
+      }));
+      // Server-enforced: the relay stops forwarding and pushing their traffic and hides it from reads.
+      const token = useSessionStore.getState().serverToken;
+      const username = usersById[userId]?.username;
+      if (BACKEND_ENABLED && token && username) void api.block(token, username).catch(() => undefined);
+    },
+    unblockUser: (userId) => {
+      set((state) => ({ blockedUserIds: state.blockedUserIds.filter((u) => u !== userId) }));
+      const token = useSessionStore.getState().serverToken;
+      const username = usersById[userId]?.username;
+      if (BACKEND_ENABLED && token && username) void api.unblock(token, username).catch(() => undefined);
+    },
     createGroup: (name, memberIds) => {
       const id = newId();
       const conversation: Conversation = {

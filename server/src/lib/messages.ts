@@ -4,7 +4,7 @@
 // shared MessageDTO (senderId), the same shape the socket 'message' frame uses.
 
 import { fromHex, MessageDTO, MessageEnvelope, toHex } from '@kith/shared';
-import { and, asc, desc, eq, gt, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, lt, notInArray, sql } from 'drizzle-orm';
 
 import { db as defaultDb, type Db } from '../db';
 import { conversationParticipants, conversations, messages } from '../db/schema';
@@ -114,23 +114,31 @@ export async function advanceCursor(
     .where(match);
 }
 
-/** Everything after a cursor, ascending, for reconnect resync. */
-export async function syncAfter(conversationId: string, afterSeq: number, limit = 200, db: Db = defaultDb): Promise<MessageDTO[]> {
+/** Everything after a cursor, ascending, for reconnect resync. Messages from `excludeSenders` (the
+ * reader's blocked users) are filtered out so a blocked sender never reaches the reader. */
+export async function syncAfter(conversationId: string, afterSeq: number, limit = 200, db: Db = defaultDb, excludeSenders: string[] = []): Promise<MessageDTO[]> {
+  const conditions = [eq(messages.conversationId, conversationId), gt(messages.seq, afterSeq)];
+  if (excludeSenders.length > 0) conditions.push(notInArray(messages.senderUserId, excludeSenders));
   const rows = await db
     .select()
     .from(messages)
-    .where(and(eq(messages.conversationId, conversationId), gt(messages.seq, afterSeq)))
+    .where(and(...conditions))
     .orderBy(asc(messages.seq))
     .limit(limit);
   return rows.map(toDTO);
 }
 
-/** A page of history older than `beforeSeq` (or the latest), returned ascending. */
-export async function history(conversationId: string, beforeSeq: number | null, limit = 50, db: Db = defaultDb): Promise<MessageDTO[]> {
-  const where =
-    beforeSeq == null
-      ? eq(messages.conversationId, conversationId)
-      : and(eq(messages.conversationId, conversationId), lt(messages.seq, beforeSeq));
-  const rows = await db.select().from(messages).where(where).orderBy(desc(messages.seq)).limit(limit);
+/** A page of history older than `beforeSeq` (or the latest), returned ascending. Excludes messages
+ * from `excludeSenders` (the reader's blocked users). */
+export async function history(conversationId: string, beforeSeq: number | null, limit = 50, db: Db = defaultDb, excludeSenders: string[] = []): Promise<MessageDTO[]> {
+  const conditions = [eq(messages.conversationId, conversationId)];
+  if (beforeSeq != null) conditions.push(lt(messages.seq, beforeSeq));
+  if (excludeSenders.length > 0) conditions.push(notInArray(messages.senderUserId, excludeSenders));
+  const rows = await db
+    .select()
+    .from(messages)
+    .where(and(...conditions))
+    .orderBy(desc(messages.seq))
+    .limit(limit);
   return rows.reverse().map(toDTO);
 }

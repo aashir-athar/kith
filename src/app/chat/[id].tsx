@@ -3,7 +3,6 @@
 
 import { router, useLocalSearchParams } from 'expo-router';
 import { Archive, Bell, ChevronRight, MessageCircle, Phone, Search, ShieldCheck, Video, type LucideIcon } from 'lucide-react-native';
-import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { BackHeader } from '@/components/layout/BackHeader';
@@ -29,10 +28,11 @@ export default function ChatInfoScreen() {
   const conversation = useChatStore((s) => s.conversations.find((c) => c.id === cid));
   const messages = useChatStore((s) => s.messages[cid]) ?? [];
   const toggleArchive = useChatStore((s) => s.toggleArchive);
+  const setConversationMuted = useChatStore((s) => s.setConversationMuted);
   const blockUser = useChatStore((s) => s.blockUser);
   const unblockUser = useChatStore((s) => s.unblockUser);
   const blockedIds = useChatStore((s) => s.blockedUserIds);
-  const [muted, setMuted] = useState(conversation?.muted ?? false);
+  const muted = conversation?.muted ?? false;
 
   if (!conversation) {
     return (
@@ -214,8 +214,8 @@ export default function ChatInfoScreen() {
           <SettingsRow
             label="Mute notifications"
             icon={Bell}
-            onPress={() => setMuted((v) => !v)}
-            right={<Toggle value={muted} onValueChange={setMuted} accessibilityLabel="Mute notifications" />}
+            onPress={() => setConversationMuted(cid, !muted)}
+            right={<Toggle value={muted} onValueChange={(v) => setConversationMuted(cid, v)} accessibilityLabel="Mute notifications" />}
           />
           {divider}
           <SettingsRow

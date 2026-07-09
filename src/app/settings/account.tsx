@@ -70,6 +70,11 @@ export default function AccountScreen() {
           <SettingsRow label="Recovery phrase" value={recoveryLabel} onPress={() => router.push('/settings/recovery')} />
         </Surface>
 
+        <ListSectionLabel label="Privacy" />
+        <Surface variant="flat" style={{ marginHorizontal: theme.space.xl, overflow: 'hidden' }}>
+          <SettingsRow label="Blocked users" onPress={() => router.push('/settings/blocked')} />
+        </Surface>
+
         <ListSectionLabel label="Data" />
         <Surface variant="flat" style={{ marginHorizontal: theme.space.xl, overflow: 'hidden' }}>
           <SettingsRow label="Export account data" onPress={() => router.push('/settings/export')} />
