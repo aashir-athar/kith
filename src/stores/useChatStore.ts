@@ -24,6 +24,7 @@ interface ChatState {
   conversations: Conversation[];
   messages: Record<string, Message[]>;
   blockedUserIds: string[];
+  verifiedKeys: Record<string, string>;
   sendText: (conversationId: string, text: string, extras?: SendExtras) => void;
   sendVoice: (conversationId: string, durationSec: number) => void;
   sendImage: (conversationId: string, mediaUrl: string) => void;
@@ -43,6 +44,8 @@ interface ChatState {
   togglePin: (conversationId: string) => void;
   toggleArchive: (conversationId: string) => void;
   setConversationMuted: (conversationId: string, muted: boolean) => void;
+  markVerified: (conversationId: string, peerId: string, ikPubHex: string) => void;
+  unmarkVerified: (conversationId: string, peerId: string) => void;
   blockUser: (userId: string) => void;
   unblockUser: (userId: string) => void;
   createGroup: (name: string, memberIds: string[]) => string;
@@ -176,6 +179,7 @@ export const useChatStore = create<ChatState>()(
     conversations: BACKEND_ENABLED ? [] : seedConversations,
     messages: BACKEND_ENABLED ? {} : seedMessages,
     blockedUserIds: [],
+    verifiedKeys: {},
 
     sendText: (conversationId, text, extras) => {
       const trimmed = text.trim();
@@ -307,6 +311,17 @@ export const useChatStore = create<ChatState>()(
       const token = useSessionStore.getState().serverToken;
       if (BACKEND_ENABLED && conv?.serverId && token) void api.setMute(token, conv.serverId, muted).catch(() => undefined);
     },
+    markVerified: (conversationId, peerId, ikPubHex) =>
+      set((state) => ({
+        verifiedKeys: { ...state.verifiedKeys, [peerId]: ikPubHex },
+        conversations: state.conversations.map((c) => (c.id === conversationId ? { ...c, verified: true } : c)),
+      })),
+    unmarkVerified: (conversationId, peerId) =>
+      set((state) => {
+        const next = { ...state.verifiedKeys };
+        delete next[peerId];
+        return { verifiedKeys: next, conversations: state.conversations.map((c) => (c.id === conversationId ? { ...c, verified: false } : c)) };
+      }),
     blockUser: (userId) => {
       set((state) => ({
         blockedUserIds: state.blockedUserIds.includes(userId) ? state.blockedUserIds : [...state.blockedUserIds, userId],
@@ -601,7 +616,7 @@ export const useChatStore = create<ChatState>()(
       name: 'kith-chat',
       storage: createJSONStorage(() => encryptedStorage),
       // Persist only the local-first message data (encrypted at rest); actions are recreated.
-      partialize: (state) => ({ conversations: state.conversations, messages: state.messages, blockedUserIds: state.blockedUserIds }),
+      partialize: (state) => ({ conversations: state.conversations, messages: state.messages, blockedUserIds: state.blockedUserIds, verifiedKeys: state.verifiedKeys }),
     },
   ),
 );

@@ -84,6 +84,13 @@ export async function getRecoveryPhrase(): Promise<string | null> {
   return store.loadMnemonic();
 }
 
+/** This device's Ed25519 identity public key (hex), for computing a safety number with a peer. */
+export async function myIdentityPubHex(): Promise<string | null> {
+  const id = await store.loadIdentity();
+  if (!id) return null;
+  return toHex(derivePublics(id.ikSecret, id.ikDhSecret).ikPub);
+}
+
 export async function hasIdentity(): Promise<boolean> {
   return (await store.loadIdentity()) !== null;
 }

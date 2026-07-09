@@ -13,20 +13,46 @@ import { Screen } from '@/components/layout/Screen';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { Text } from '@/components/ui/Text';
+import { users } from '@/lib/mockData';
+import { BACKEND_ENABLED } from '@/net/config';
+import { useChatStore } from '@/stores/useChatStore';
 import { useTheme } from '@/theme/ThemeProvider';
 
 export default function ScanScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
+  const startDirectWithUsername = useChatStore((s) => s.startDirectWithUsername);
+  const createDirect = useChatStore((s) => s.createDirect);
   const handled = useRef(false);
+
+  const openUser = async (username: string) => {
+    if (BACKEND_ENABLED) {
+      const id = await startDirectWithUsername(username);
+      if (id) {
+        router.replace({ pathname: '/conversation/[id]', params: { id } });
+        return;
+      }
+    } else {
+      const u = users.find((x) => x.username === username);
+      if (u) {
+        router.replace({ pathname: '/conversation/[id]', params: { id: createDirect(u.id) } });
+        return;
+      }
+    }
+    handled.current = false;
+    Alert.alert('No such user', `No one is registered as @${username}.`);
+  };
 
   const onScan = ({ data }: { data: string }) => {
     if (handled.current) return;
+    const match = /^kith:\/\/user\/([a-z0-9_]{3,32})$/i.exec(data.trim());
+    if (!match) {
+      Alert.alert('Not a Kith code', 'That QR code is not a Kith contact code.');
+      return;
+    }
     handled.current = true;
-    Alert.alert('Code scanned', `Adding ${data}. Verify the safety number after your first message.`, [
-      { text: 'OK', onPress: () => router.back() },
-    ]);
+    void openUser(match[1]!.toLowerCase());
   };
 
   const closeButton = (

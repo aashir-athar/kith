@@ -14,6 +14,7 @@ import {
   open,
   type PreKeyBundleBytes,
   type RecipientKeys,
+  safetyNumber,
   seal,
   type SenderIdentity,
   signPreKey,
@@ -98,4 +99,17 @@ test('a seed-derived identity can seal and be opened', () => {
   const alice = identityFromSeed(rnd(64));
   const env = seal(enc('from a recovered identity'), { ikPub: alice.ikPub, ikDhPub: alice.ikDhPub, ikDhSecret: alice.ikDhSecret }, bob.bundle, rnd);
   assert.equal(dec(open(env, bob.keys)), 'from a recovered identity');
+});
+
+test('safety number is deterministic, symmetric, and key-dependent', () => {
+  const a = identityFromSeed(rnd(64));
+  const b = identityFromSeed(rnd(64));
+  const ab = safetyNumber(a.ikPub, b.ikPub);
+  // Both parties compute the same number regardless of argument order.
+  assert.deepEqual(ab, safetyNumber(b.ikPub, a.ikPub));
+  assert.equal(ab.length, 12);
+  for (const group of ab) assert.match(group, /^\d{5}$/);
+  // A different identity key yields a different number (so a key change is visible).
+  const c = identityFromSeed(rnd(64));
+  assert.notDeepEqual(safetyNumber(a.ikPub, c.ikPub), ab);
 });

@@ -9,7 +9,7 @@
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';
 import { ed25519, x25519 } from '@noble/curves/ed25519.js';
 import { hkdf } from '@noble/hashes/hkdf.js';
-import { sha256 } from '@noble/hashes/sha2.js';
+import { sha256, sha512 } from '@noble/hashes/sha2.js';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
 
 import { HKDF_INFO, type EnvelopeBytes, type PreKeyBundleBytes } from './crypto';
@@ -94,6 +94,21 @@ export function verifyBytes(message: Uint8Array, sig: Uint8Array, ikPub: Uint8Ar
   } catch {
     return false;
   }
+}
+
+/** A safety number for two identity keys. Both parties sort the pair and hash it, so each computes
+ * the same 12 groups of 5 digits. Comparing them out of band confirms there is no man in the middle;
+ * a change in the number means an identity key changed. */
+export function safetyNumber(ikPubA: Uint8Array, ikPubB: Uint8Array): string[] {
+  const [first, second] = toHex(ikPubA) <= toHex(ikPubB) ? [ikPubA, ikPubB] : [ikPubB, ikPubA];
+  const h = sha512(concatBytes(first, second));
+  const groups: string[] = [];
+  for (let g = 0; g < 12; g += 1) {
+    let value = 0;
+    for (let i = 0; i < 5; i += 1) value = (value * 256 + (h[g * 5 + i] ?? 0)) % 100000;
+    groups.push(String(value).padStart(5, '0'));
+  }
+  return groups;
 }
 
 /** Symmetric AEAD with a local data key (used for encrypt-at-rest of the local message store). */
