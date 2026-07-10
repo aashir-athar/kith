@@ -1,6 +1,7 @@
 // Message composer (controlled). Supports reply and edit context bars, attachments, and a
 // voice recording mode. Send is the one coral affordance; the mic takes its place when empty.
 
+import { RecordingPresets, requestRecordingPermissionsAsync, useAudioRecorder } from 'expo-audio';
 import { ArrowUp, Mic, Paperclip, Smile, Trash2, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
@@ -19,7 +20,7 @@ export interface ComposerProps {
   onSend: () => void;
   onAttachPress?: () => void;
   onStickerPress?: () => void;
-  onVoice?: (durationSec: number) => void;
+  onVoice?: (uri: string, durationSec: number) => void;
   replyingTo?: { author: string; text: string };
   onCancelReply?: () => void;
   editing?: boolean;
@@ -42,7 +43,35 @@ export function Composer({
   const insets = useSafeAreaInsets();
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const canSend = value.trim().length > 0;
+
+  const startRecording = async () => {
+    const perm = await requestRecordingPermissionsAsync();
+    if (!perm.granted) return;
+    await recorder.prepareToRecordAsync();
+    recorder.record();
+    setRecording(true);
+  };
+
+  const cancelRecording = async () => {
+    setRecording(false);
+    try {
+      await recorder.stop();
+    } catch {
+      // nothing recorded
+    }
+  };
+
+  const finishRecording = async () => {
+    setRecording(false);
+    try {
+      await recorder.stop();
+    } catch {
+      return;
+    }
+    if (recorder.uri) onVoice?.(recorder.uri, Math.max(1, seconds));
+  };
 
   useEffect(() => {
     if (!recording) return;
@@ -95,7 +124,7 @@ export function Composer({
           <IconButton
             accessibilityLabel="Cancel recording"
             size={40}
-            onPress={() => setRecording(false)}>
+            onPress={() => void cancelRecording()}>
             <Icon icon={Trash2} size={22} tone="danger" />
           </IconButton>
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: theme.space.sm }}>
@@ -110,10 +139,7 @@ export function Composer({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Send voice message"
-            onPress={() => {
-              onVoice?.(Math.max(1, seconds));
-              setRecording(false);
-            }}
+            onPress={() => void finishRecording()}
             style={{
               width: 40,
               height: 40,
@@ -197,7 +223,7 @@ export function Composer({
               <Icon icon={ArrowUp} size={22} tone="onAccent" strokeWidth={2.6} />
             </Pressable>
           ) : onVoice ? (
-            <IconButton accessibilityLabel="Record voice message" size={40} onPress={() => setRecording(true)}>
+            <IconButton accessibilityLabel="Record voice message" size={40} onPress={() => void startRecording()}>
               <Icon icon={Mic} size={22} tone="secondary" />
             </IconButton>
           ) : null}

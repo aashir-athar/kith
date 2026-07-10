@@ -29,7 +29,7 @@ interface ChatState {
   // Server seqs of disappearing messages already removed locally, so they never re-hydrate.
   expiredSeqs: Record<string, number[]>;
   sendText: (conversationId: string, text: string, extras?: SendExtras) => void;
-  sendVoice: (conversationId: string, durationSec: number) => void;
+  sendVoice: (conversationId: string, uri: string, durationSec: number) => void;
   sendImage: (conversationId: string, mediaUrl: string) => void;
   sendDocument: (conversationId: string, uri: string, fileName: string, sizeBytes?: number) => void;
   sendSticker: (conversationId: string, stickerId: string) => void;
@@ -238,6 +238,15 @@ export const useChatStore = create<ChatState>()(
     }
   };
 
+  const sendVoiceReal = async (localConvId: string, peerUsername: string, clientId: string, uri: string, durationSec: number) => {
+    try {
+      const { ref, mime, size } = await uploadLocalMedia(uri, 'audio/mp4');
+      await sendContentReal(localConvId, peerUsername, clientId, { t: 'media', mediaKind: 'voice', blobId: ref.blobId, keyHex: ref.keyHex, nonceHex: ref.nonceHex, mime, size, durationSec });
+    } catch {
+      update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
+    }
+  };
+
   const update = (conversationId: string, messageId: string, fn: (m: Message) => Message) =>
     set((state) => ({
       messages: {
@@ -280,7 +289,13 @@ export const useChatStore = create<ChatState>()(
         advance(conversationId, message.id);
       }
     },
-    sendVoice: (conversationId, durationSec) => append(conversationId, { ...base(conversationId, 'voice'), durationSec }),
+    sendVoice: (conversationId, uri, durationSec) => {
+      const message: Message = { ...base(conversationId, 'voice'), durationSec, mediaUrl: uri };
+      push(conversationId, message);
+      const peerUsername = realDirectPeer(conversationId);
+      if (peerUsername) void sendVoiceReal(conversationId, peerUsername, message.id, uri, durationSec);
+      else advance(conversationId, message.id);
+    },
     sendImage: (conversationId, mediaUrl) => {
       const message: Message = { ...base(conversationId, 'image'), mediaUrl };
       push(conversationId, message);

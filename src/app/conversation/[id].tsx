@@ -328,7 +328,7 @@ export default function ConversationScreen() {
           onSend={handleSend}
           onAttachPress={() => setAttachVisible(true)}
           onStickerPress={() => setStickerVisible(true)}
-          onVoice={liveFeatures ? (sec) => sendVoice(cid, sec) : undefined}
+          onVoice={(uri, sec) => sendVoice(cid, uri, sec)}
           replyingTo={replyingTo ? { author: replyingTo.author, text: replyingTo.text } : undefined}
           onCancelReply={() => setReplyingTo(null)}
           editing={editingId !== null}
