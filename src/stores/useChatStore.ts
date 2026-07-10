@@ -169,6 +169,12 @@ export const useChatStore = create<ChatState>()(
     advance(conversationId, message.id);
   };
 
+  // Demo advances locally; a live build never fakes delivery, so an unresolved send fails honestly.
+  const advanceOrFail = (conversationId: string, id: string) => {
+    if (BACKEND_ENABLED) update(conversationId, id, (m) => ({ ...m, status: 'failed' }));
+    else advance(conversationId, id);
+  };
+
   // The peer's handle for a direct conversation in backend mode, or undefined (mock / group / none).
   const realDirectPeer = (conversationId: string): string | undefined => {
     const conv = get().conversations.find((c) => c.id === conversationId);
@@ -230,6 +236,12 @@ export const useChatStore = create<ChatState>()(
       } catch {
         update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
       }
+      return;
+    }
+    // In a live build we never fake delivery: an unresolved transport (e.g. a group whose server id
+    // has not landed yet) fails honestly and can be retried. advance() is the demo path only.
+    if (BACKEND_ENABLED) {
+      update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
       return;
     }
     advance(localConvId, clientId);
@@ -303,19 +315,19 @@ export const useChatStore = create<ChatState>()(
       const message: Message = { ...base(conversationId, 'voice'), durationSec, mediaUrl: uri };
       push(conversationId, message);
       if (isRealConversation(conversationId)) void uploadAndDeliver(conversationId, message.id, uri, 'voice', 'audio/mp4', { durationSec });
-      else advance(conversationId, message.id);
+      else advanceOrFail(conversationId, message.id);
     },
     sendImage: (conversationId, mediaUrl) => {
       const message: Message = { ...base(conversationId, 'image'), mediaUrl };
       push(conversationId, message);
       if (isRealConversation(conversationId)) void uploadAndDeliver(conversationId, message.id, mediaUrl, 'image', 'image/jpeg');
-      else advance(conversationId, message.id);
+      else advanceOrFail(conversationId, message.id);
     },
     sendDocument: (conversationId, uri, fileName, sizeBytes) => {
       const message: Message = { ...base(conversationId, 'document'), fileName, fileSize: formatBytes(sizeBytes), mediaUrl: uri };
       push(conversationId, message);
       if (isRealConversation(conversationId)) void uploadAndDeliver(conversationId, message.id, uri, 'document', 'application/octet-stream', { name: fileName });
-      else advance(conversationId, message.id);
+      else advanceOrFail(conversationId, message.id);
     },
     sendSticker: (conversationId, stickerId) => {
       const message: Message = { ...base(conversationId, 'sticker'), stickerId };
@@ -376,7 +388,7 @@ export const useChatStore = create<ChatState>()(
       const msg = (get().messages[conversationId] ?? []).find((m) => m.id === messageId);
       update(conversationId, messageId, (m) => ({ ...m, status: 'sending' }));
       if (isRealConversation(conversationId) && msg?.text) void deliverContent(conversationId, messageId, { t: 'text', body: msg.text });
-      else advance(conversationId, messageId);
+      else advanceOrFail(conversationId, messageId);
     },
     deleteMessage: (conversationId, messageId) => {
       const conv = get().conversations.find((c) => c.id === conversationId);
@@ -395,14 +407,17 @@ export const useChatStore = create<ChatState>()(
     forwardMessage: (fromId, messageId, toId) => {
       const src = (get().messages[fromId] ?? []).find((m) => m.id === messageId);
       if (!src) return;
-      const real = isRealConversation(toId) && src.kind === 'text' && !!src.text;
+      const canForward = src.kind === 'text' && !!src.text;
+      const real = isRealConversation(toId) && canForward;
       const forwarded: Message = {
         ...src,
         id: newId(),
         conversationId: toId,
         senderId: me.id,
         createdAt: new Date().toISOString(),
-        status: real ? 'sending' : 'sent',
+        // Text forwards send for real; in a live build a not-yet-forwardable kind (media) fails
+        // honestly rather than showing a fake 'sent'. The demo marks it sent locally.
+        status: real ? 'sending' : BACKEND_ENABLED && !canForward ? 'failed' : 'sent',
         forwardedFrom: src.senderId,
         reactions: undefined,
         starred: false,
