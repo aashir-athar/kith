@@ -620,7 +620,7 @@ export const useChatStore = create<ChatState>()(
         messages: {
           ...state.messages,
           [conv.id]: (state.messages[conv.id] ?? []).map((m) =>
-            m.senderId === me.id && (m.serverSeq ?? 0) <= seq && m.status !== 'read' ? { ...m, status: kind } : m,
+            m.senderId === me.id && m.serverSeq != null && m.serverSeq <= seq && m.status !== 'read' ? { ...m, status: kind } : m,
           ),
         },
       }));
