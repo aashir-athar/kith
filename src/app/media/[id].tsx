@@ -1,6 +1,7 @@
 // Full-screen media viewer. Renders local decrypted media only (no third-party fetch), with a
 // close ring and share/save controls over a scrim, plus a graceful failure state.
 
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Download, ImageOff, Share2, X } from 'lucide-react-native';
 import { Alert, Pressable, View } from 'react-native';
@@ -17,6 +18,7 @@ export default function MediaViewer() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const mediaId = typeof id === 'string' ? id : '';
   const failed = mediaId.length === 0;
+  const isRealImage = mediaId.includes('://');
 
   const control = (label: string, icon: typeof X, onPress: () => void) => (
     <Pressable
@@ -47,6 +49,8 @@ export default function MediaViewer() {
               This media could not be loaded. It may have expired or failed to decrypt on this device.
             </Text>
           </View>
+        ) : isRealImage ? (
+          <Image source={{ uri: mediaId }} style={{ width: '100%', height: '100%' }} contentFit="contain" transition={120} />
         ) : (
           <LocalMedia seed={mediaId} style={{ width: '100%', aspectRatio: 3 / 4 }} />
         )}

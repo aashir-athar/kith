@@ -4,6 +4,7 @@
 
 import { FlashList } from '@shopify/flash-list';
 import * as Clipboard from 'expo-clipboard';
+import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Phone, Video } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
@@ -23,7 +24,6 @@ import { StickerPicker } from '@/components/ui/StickerPicker';
 import { Text } from '@/components/ui/Text';
 import { avatarGradient } from '@/lib/avatar';
 import { dayLabel } from '@/lib/format';
-import { newId } from '@/lib/id';
 import { conversationPeer, conversationTitle, me, usersById } from '@/lib/mockData';
 import { BACKEND_ENABLED } from '@/net/config';
 import { useChatStore } from '@/stores/useChatStore';
@@ -164,11 +164,27 @@ export default function ConversationScreen() {
     }
   };
 
+  const pickImage = async () => {
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
+    const asset = res.canceled ? undefined : res.assets[0];
+    if (asset) sendImage(cid, asset.uri);
+  };
+
+  const captureImage = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) return;
+    const res = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+    const asset = res.canceled ? undefined : res.assets[0];
+    if (asset) sendImage(cid, asset.uri);
+  };
+
   const handleAttach = (kind: AttachmentKind) => {
     switch (kind) {
       case 'photo':
+        void pickImage();
+        break;
       case 'camera':
-        sendImage(cid, newId());
+        void captureImage();
         break;
       case 'document':
         sendDocument(cid, 'Field-brief.pdf', '1.8 MB');
@@ -303,8 +319,8 @@ export default function ConversationScreen() {
           value={text}
           onChangeText={setText}
           onSend={handleSend}
-          onAttachPress={liveFeatures ? () => setAttachVisible(true) : undefined}
-          onStickerPress={liveFeatures ? () => setStickerVisible(true) : undefined}
+          onAttachPress={() => setAttachVisible(true)}
+          onStickerPress={() => setStickerVisible(true)}
           onVoice={liveFeatures ? (sec) => sendVoice(cid, sec) : undefined}
           replyingTo={replyingTo ? { author: replyingTo.author, text: replyingTo.text } : undefined}
           onCancelReply={() => setReplyingTo(null)}
@@ -323,7 +339,12 @@ export default function ConversationScreen() {
         onAction={handleAction}
         onReact={(key, message) => addReaction(cid, message.id, key)}
       />
-      <AttachmentSheet visible={attachVisible} onClose={() => setAttachVisible(false)} onSelect={handleAttach} />
+      <AttachmentSheet
+        visible={attachVisible}
+        onClose={() => setAttachVisible(false)}
+        onSelect={handleAttach}
+        exclude={BACKEND_ENABLED ? ['document'] : []}
+      />
       <StickerPicker visible={stickerVisible} onClose={() => setStickerVisible(false)} onSelect={(id) => sendSticker(cid, id)} />
       <ForwardSheet
         visible={forwardId !== null}

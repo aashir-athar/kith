@@ -3,11 +3,19 @@
 // an earlier message by its sequence number. Control ops use set-semantics (add vs remove / a bool)
 // so replaying them on reconnect or history load is idempotent.
 
+export type MediaKind = 'image' | 'voice' | 'document';
+
 export type Content =
   | { t: 'text'; body: string; replyToSeq?: number; expiresInSec?: number }
   | { t: 'reaction'; targetSeq: number; key: string; remove: boolean }
   | { t: 'pin'; targetSeq: number; pinned: boolean }
-  | { t: 'timer'; seconds: number };
+  | { t: 'timer'; seconds: number }
+  // Blob-backed: only the ref (id + key + nonce) is sealed; the ciphertext lives on the relay.
+  | { t: 'media'; mediaKind: MediaKind; blobId: string; keyHex: string; nonceHex: string; mime: string; name?: string; size?: number; durationSec?: number }
+  | { t: 'sticker'; stickerId: string }
+  | { t: 'location'; label: string; latitude: number; longitude: number }
+  | { t: 'contact'; name: string; username?: string }
+  | { t: 'poll'; question: string; options: string[] };
 
 export function encodeContent(content: Content): string {
   return JSON.stringify(content);
@@ -26,6 +34,31 @@ export function decodeContent(raw: string): Content {
     }
     if (o.t === 'timer' && typeof o.seconds === 'number') {
       return { t: 'timer', seconds: o.seconds };
+    }
+    if (o.t === 'media' && (o.mediaKind === 'image' || o.mediaKind === 'voice' || o.mediaKind === 'document') && typeof o.blobId === 'string' && typeof o.keyHex === 'string' && typeof o.nonceHex === 'string' && typeof o.mime === 'string') {
+      return {
+        t: 'media',
+        mediaKind: o.mediaKind,
+        blobId: o.blobId,
+        keyHex: o.keyHex,
+        nonceHex: o.nonceHex,
+        mime: o.mime,
+        name: typeof o.name === 'string' ? o.name : undefined,
+        size: typeof o.size === 'number' ? o.size : undefined,
+        durationSec: typeof o.durationSec === 'number' ? o.durationSec : undefined,
+      };
+    }
+    if (o.t === 'sticker' && typeof o.stickerId === 'string') {
+      return { t: 'sticker', stickerId: o.stickerId };
+    }
+    if (o.t === 'location' && typeof o.label === 'string' && typeof o.latitude === 'number' && typeof o.longitude === 'number') {
+      return { t: 'location', label: o.label, latitude: o.latitude, longitude: o.longitude };
+    }
+    if (o.t === 'contact' && typeof o.name === 'string') {
+      return { t: 'contact', name: o.name, username: typeof o.username === 'string' ? o.username : undefined };
+    }
+    if (o.t === 'poll' && typeof o.question === 'string' && Array.isArray(o.options)) {
+      return { t: 'poll', question: o.question, options: o.options.filter((x): x is string => typeof x === 'string') };
     }
     if (o.t === 'text' && typeof o.body === 'string') {
       return {

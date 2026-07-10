@@ -45,6 +45,12 @@
         {
           "color": "#FF5A2C"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Kith needs access to your photos so you can send them, encrypted, in a chat."
+        }
       ]
     ],
     "experiments": {

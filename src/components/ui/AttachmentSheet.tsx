@@ -24,10 +24,13 @@ export interface AttachmentSheetProps {
   visible: boolean;
   onClose: () => void;
   onSelect: (kind: AttachmentKind) => void;
+  // Kinds not yet wired to the encrypted transport are hidden in a live build.
+  exclude?: AttachmentKind[];
 }
 
-export function AttachmentSheet({ visible, onClose, onSelect }: AttachmentSheetProps) {
+export function AttachmentSheet({ visible, onClose, onSelect, exclude = [] }: AttachmentSheetProps) {
   const theme = useTheme();
+  const options = OPTIONS.filter((o) => !exclude.includes(o.kind));
   return (
     <Sheet visible={visible} onClose={onClose}>
       <View
@@ -37,7 +40,7 @@ export function AttachmentSheet({ visible, onClose, onSelect }: AttachmentSheetP
           paddingHorizontal: theme.space.xl,
           paddingBottom: theme.space.sm,
         }}>
-        {OPTIONS.map((option) => (
+        {options.map((option) => (
           <Pressable
             key={option.kind}
             accessibilityRole="button"

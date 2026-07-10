@@ -7,16 +7,43 @@ import { api } from '@/api/client';
 import { KithSocket } from '@/api/socket';
 import { openFrom, sealTo } from '@/crypto/e2e';
 import { newId } from '@/lib/id';
-import { decodeContent, encodeContent } from '@/net/content';
+import { type Content, decodeContent, encodeContent } from '@/net/content';
 import type { ServerFrame } from '@kith/shared';
+
+/** A decoded message-producing payload, mapped to the app's message kinds. */
+export type IncomingContent =
+  | { kind: 'text'; text: string }
+  | { kind: 'image' | 'voice' | 'document'; blob: { blobId: string; keyHex: string; nonceHex: string }; mime: string; name?: string; size?: number; durationSec?: number }
+  | { kind: 'sticker'; stickerId: string }
+  | { kind: 'location'; label: string; latitude: number; longitude: number }
+  | { kind: 'contact'; name: string; username?: string }
+  | { kind: 'poll'; question: string; options: string[] };
 
 export interface IncomingMessage {
   conversationId: string;
   seq: number;
   senderId: string;
-  text: string;
   createdAt: number;
   expiresInSec?: number;
+  content: IncomingContent;
+}
+
+/** Map a decrypted content payload (excluding control ops) to a message-producing descriptor. */
+export function toIncomingContent(content: Exclude<Content, { t: 'reaction' } | { t: 'pin' } | { t: 'timer' }>): IncomingContent {
+  switch (content.t) {
+    case 'media':
+      return { kind: content.mediaKind, blob: { blobId: content.blobId, keyHex: content.keyHex, nonceHex: content.nonceHex }, mime: content.mime, name: content.name, size: content.size, durationSec: content.durationSec };
+    case 'sticker':
+      return { kind: 'sticker', stickerId: content.stickerId };
+    case 'location':
+      return { kind: 'location', label: content.label, latitude: content.latitude, longitude: content.longitude };
+    case 'contact':
+      return { kind: 'contact', name: content.name, username: content.username };
+    case 'poll':
+      return { kind: 'poll', question: content.question, options: content.options };
+    default:
+      return { kind: 'text', text: content.body };
+  }
 }
 
 export interface Handlers {
@@ -63,7 +90,14 @@ class Messaging {
         } else if (content.t === 'timer') {
           this.handlers.onTimer({ conversationId: frame.conversationId, seconds: content.seconds });
         } else {
-          this.handlers.onIncoming({ conversationId: frame.conversationId, seq: frame.seq, senderId: frame.senderId, text: content.body, createdAt: frame.createdAt, expiresInSec: content.expiresInSec });
+          this.handlers.onIncoming({
+            conversationId: frame.conversationId,
+            seq: frame.seq,
+            senderId: frame.senderId,
+            createdAt: frame.createdAt,
+            expiresInSec: content.t === 'text' ? content.expiresInSec : undefined,
+            content: toIncomingContent(content),
+          });
         }
         this.socket?.send({ t: 'delivered', conversationId: frame.conversationId, seq: frame.seq });
       } catch {
@@ -90,6 +124,14 @@ class Messaging {
     if (!this.token || !this.socket) return false;
     const bundle = await api.bundle(this.token, peerUsername);
     const envelope = await sealTo(bundle, encodeContent({ t: 'text', body: text, expiresInSec }));
+    return this.socket.send({ t: 'send', conversationId, clientId, envelope });
+  }
+
+  /** Seal and send any content (media ref, sticker, location, contact, poll) over the normal path. */
+  async sendContent(conversationId: string, peerUsername: string, clientId: string, content: Content): Promise<boolean> {
+    if (!this.token || !this.socket) return false;
+    const bundle = await api.bundle(this.token, peerUsername);
+    const envelope = await sealTo(bundle, encodeContent(content));
     return this.socket.send({ t: 'send', conversationId, clientId, envelope });
   }
 

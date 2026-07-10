@@ -54,6 +54,9 @@ export interface Message {
   kind: MessageKind;
   text?: string;
   mediaUrl?: string;
+  // Encrypted-blob reference for media received over the relay (downloaded + decrypted lazily).
+  blob?: { blobId: string; keyHex: string; nonceHex: string };
+  mime?: string;
   durationSec?: number;
   createdAt: ISO;
   status: DeliveryStatus;

@@ -10,8 +10,9 @@ import { openFrom } from '@/crypto/e2e';
 import { newId } from '@/lib/id';
 import { conversationPeer, conversations as seedConversations, me, messagesByConversation as seedMessages, registerUser, usersById } from '@/lib/mockData';
 import { BACKEND_ENABLED } from '@/net/config';
-import { decodeContent } from '@/net/content';
-import { messaging } from '@/net/messaging';
+import { type Content, decodeContent } from '@/net/content';
+import { uploadLocalMedia } from '@/net/media';
+import { type IncomingContent, messaging, toIncomingContent } from '@/net/messaging';
 import { encryptedStorage } from '@/net/secureStorage';
 import { useSessionStore } from '@/stores/useSessionStore';
 import type { Conversation, DeliveryStatus, Message, MessageKind, Reaction } from '@/types/models';
@@ -54,7 +55,7 @@ interface ChatState {
   createDirect: (userId: string) => string;
   setDisappearing: (conversationId: string, seconds: number) => void;
   sweepExpired: () => void;
-  receiveServerMessage: (input: { serverConversationId: string; seq: number; senderId: string; text: string; createdAt: number; expiresInSec?: number }) => void;
+  receiveServerMessage: (input: { serverConversationId: string; seq: number; senderId: string; content: IncomingContent; createdAt: number; expiresInSec?: number }) => void;
   applyTimer: (input: { serverConversationId: string; seconds: number }) => void;
   applyRemoteReaction: (input: { serverConversationId: string; targetSeq: number; key: string; remove: boolean; senderId: string }) => void;
   applyRemotePin: (input: { serverConversationId: string; targetSeq: number; pinned: boolean }) => void;
@@ -80,6 +81,36 @@ function reactionSetOp(reactions: Reaction[] | undefined, userId: string, key: s
     return list.map((r) => (r.key === key && !r.userIds.includes(userId) ? { ...r, userIds: [...r.userIds, userId] } : r));
   }
   return [...list, { key, userIds: [userId] }];
+}
+
+function formatBytes(size?: number): string | undefined {
+  if (size == null) return undefined;
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Map a decoded incoming payload to the Message fields for that kind. */
+function messageFieldsFromContent(content: IncomingContent): Partial<Message> & { kind: MessageKind } {
+  switch (content.kind) {
+    case 'text':
+      return { kind: 'text', text: content.text };
+    case 'image':
+    case 'voice':
+    case 'document':
+      return { kind: content.kind, blob: content.blob, mime: content.mime, fileName: content.name, fileSize: formatBytes(content.size), durationSec: content.durationSec };
+    case 'sticker':
+      return { kind: 'sticker', stickerId: content.stickerId };
+    case 'location':
+      return { kind: 'location', locationLabel: content.label, latitude: content.latitude, longitude: content.longitude };
+    case 'contact':
+      return { kind: 'contact', contactName: content.name, contactUsername: content.username };
+    case 'poll':
+      return {
+        kind: 'poll',
+        poll: { question: content.question, multiple: false, totalVotes: 0, options: content.options.map((label, i) => ({ id: `po${i}`, label, votes: 0 })) },
+      };
+  }
 }
 
 function previewFor(kind: MessageKind, text?: string): string {
@@ -160,6 +191,44 @@ export const useChatStore = create<ChatState>()(
     }
   };
 
+  // The peer's handle for a direct conversation in backend mode, or undefined (mock / group / none).
+  const realDirectPeer = (conversationId: string): string | undefined => {
+    const conv = get().conversations.find((c) => c.id === conversationId);
+    if (!BACKEND_ENABLED || conv?.kind !== 'direct') return undefined;
+    return conv.peerUsername ?? conversationPeer(conv)?.username;
+  };
+
+  // Seal + send arbitrary content (sticker, location, contact, poll, media ref) to the peer.
+  const sendContentReal = async (localConvId: string, peerUsername: string, clientId: string, content: Content) => {
+    const token = useSessionStore.getState().serverToken;
+    if (!token) {
+      update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
+      return;
+    }
+    try {
+      let serverId = get().conversations.find((c) => c.id === localConvId)?.serverId;
+      if (!serverId) {
+        const direct = await api.createDirect(token, peerUsername);
+        serverId = direct.id;
+        set((state) => ({ conversations: state.conversations.map((c) => (c.id === localConvId ? { ...c, serverId: direct.id } : c)) }));
+      }
+      const ok = await messaging.sendContent(serverId, peerUsername, clientId, content);
+      if (!ok) update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
+    } catch {
+      update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
+    }
+  };
+
+  // Encrypt + upload a picked file, then seal its blob ref to the peer.
+  const sendImageReal = async (localConvId: string, peerUsername: string, clientId: string, uri: string) => {
+    try {
+      const { ref, mime, size } = await uploadLocalMedia(uri, 'image/jpeg');
+      await sendContentReal(localConvId, peerUsername, clientId, { t: 'media', mediaKind: 'image', blobId: ref.blobId, keyHex: ref.keyHex, nonceHex: ref.nonceHex, mime, size });
+    } catch {
+      update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
+    }
+  };
+
   const update = (conversationId: string, messageId: string, fn: (m: Message) => Message) =>
     set((state) => ({
       messages: {
@@ -203,19 +272,46 @@ export const useChatStore = create<ChatState>()(
       }
     },
     sendVoice: (conversationId, durationSec) => append(conversationId, { ...base(conversationId, 'voice'), durationSec }),
-    sendImage: (conversationId, mediaUrl) => append(conversationId, { ...base(conversationId, 'image'), mediaUrl }),
+    sendImage: (conversationId, mediaUrl) => {
+      const message: Message = { ...base(conversationId, 'image'), mediaUrl };
+      push(conversationId, message);
+      const peerUsername = realDirectPeer(conversationId);
+      if (peerUsername) void sendImageReal(conversationId, peerUsername, message.id, mediaUrl);
+      else advance(conversationId, message.id);
+    },
     sendDocument: (conversationId, fileName, fileSize) =>
       append(conversationId, { ...base(conversationId, 'document'), fileName, fileSize }),
-    sendSticker: (conversationId, stickerId) => append(conversationId, { ...base(conversationId, 'sticker'), stickerId }),
-    sendLocation: (conversationId, label) =>
-      append(conversationId, { ...base(conversationId, 'location'), locationLabel: label, latitude: 51.5074, longitude: -0.1278 }),
-    sendContact: (conversationId, name, username) =>
-      append(conversationId, { ...base(conversationId, 'contact'), contactName: name, contactUsername: username }),
-    sendPoll: (conversationId, question, options) =>
-      append(conversationId, {
+    sendSticker: (conversationId, stickerId) => {
+      const message: Message = { ...base(conversationId, 'sticker'), stickerId };
+      push(conversationId, message);
+      const peerUsername = realDirectPeer(conversationId);
+      if (peerUsername) void sendContentReal(conversationId, peerUsername, message.id, { t: 'sticker', stickerId });
+      else advance(conversationId, message.id);
+    },
+    sendLocation: (conversationId, label) => {
+      const message: Message = { ...base(conversationId, 'location'), locationLabel: label, latitude: 51.5074, longitude: -0.1278 };
+      push(conversationId, message);
+      const peerUsername = realDirectPeer(conversationId);
+      if (peerUsername) void sendContentReal(conversationId, peerUsername, message.id, { t: 'location', label, latitude: 51.5074, longitude: -0.1278 });
+      else advance(conversationId, message.id);
+    },
+    sendContact: (conversationId, name, username) => {
+      const message: Message = { ...base(conversationId, 'contact'), contactName: name, contactUsername: username };
+      push(conversationId, message);
+      const peerUsername = realDirectPeer(conversationId);
+      if (peerUsername) void sendContentReal(conversationId, peerUsername, message.id, { t: 'contact', name, username });
+      else advance(conversationId, message.id);
+    },
+    sendPoll: (conversationId, question, options) => {
+      const message: Message = {
         ...base(conversationId, 'poll'),
         poll: { question, multiple: false, totalVotes: 0, options: options.map((label, i) => ({ id: `po${i}`, label, votes: 0 })) },
-      }),
+      };
+      push(conversationId, message);
+      const peerUsername = realDirectPeer(conversationId);
+      if (peerUsername) void sendContentReal(conversationId, peerUsername, message.id, { t: 'poll', question, options });
+      else advance(conversationId, message.id);
+    },
 
     addReaction: (conversationId, messageId, key) => {
       const msg = (get().messages[conversationId] ?? []).find((m) => m.id === messageId);
@@ -423,25 +519,26 @@ export const useChatStore = create<ChatState>()(
       return id;
     },
 
-    receiveServerMessage: ({ serverConversationId, seq, text, createdAt, expiresInSec }) => {
+    receiveServerMessage: ({ serverConversationId, seq, content, createdAt, expiresInSec }) => {
       const conv = get().conversations.find((c) => c.serverId === serverConversationId);
       if (!conv || hasSeq(conv.id, seq)) return;
       if ((get().expiredSeqs[conv.id] ?? []).includes(seq)) return; // already expired locally; do not resurrect
       const peer = conversationPeer(conv);
       if (peer && get().blockedUserIds.includes(peer.id)) return; // blocked sender: drop inbound
+      const fields = messageFieldsFromContent(content);
       push(conv.id, {
         id: newId(),
         conversationId: conv.id,
         senderId: peer?.id ?? conv.id,
-        kind: 'text',
-        text,
+        ...fields,
         createdAt: new Date(createdAt).toISOString(),
         status: 'read',
         serverSeq: seq,
         expiresAt: expiresInSec ? new Date(createdAt + expiresInSec * 1000).toISOString() : undefined,
       });
+      const preview = previewFor(fields.kind, fields.text);
       set((state) => ({
-        conversations: state.conversations.map((c) => (c.id === conv.id ? { ...c, unreadCount: c.unreadCount + 1, lastMessagePreview: text } : c)),
+        conversations: state.conversations.map((c) => (c.id === conv.id ? { ...c, unreadCount: c.unreadCount + 1, lastMessagePreview: preview } : c)),
       }));
     },
 
@@ -600,17 +697,17 @@ export const useChatStore = create<ChatState>()(
             timerSeconds = content.seconds;
             continue;
           }
+          const fields = messageFieldsFromContent(toIncomingContent(content));
           loaded.push({
             id: dto.id,
             conversationId: localConversationId,
             senderId: peerLocalId,
-            kind: 'text',
-            text: content.body,
+            ...fields,
             editedAt: dto.editedAt ? new Date(dto.editedAt).toISOString() : undefined,
             createdAt: new Date(dto.createdAt).toISOString(),
             status: 'read',
             serverSeq: dto.seq,
-            expiresAt: content.expiresInSec ? new Date(dto.createdAt + content.expiresInSec * 1000).toISOString() : undefined,
+            expiresAt: content.t === 'text' && content.expiresInSec ? new Date(dto.createdAt + content.expiresInSec * 1000).toISOString() : undefined,
           });
         } catch {
           // undecryptable; skip
