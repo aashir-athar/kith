@@ -19,3 +19,19 @@ export const MessageEnvelope = z.object({
   ciphertext: b64, // XChaCha20-Poly1305 output (ciphertext || 16-byte tag)
 });
 export type MessageEnvelope = z.infer<typeof MessageEnvelope>;
+
+// Group message envelope. The content is encrypted once with a fresh per-message key; that key is
+// then sealed to each member individually via X3DH (`keys`), so the relay still only ever sees
+// ciphertext and per-recipient key blobs, never the plaintext or the key.
+export const GroupEnvelope = z.object({
+  v: z.literal(1),
+  type: z.literal('group'),
+  nonce: b64, // content nonce (XChaCha20)
+  ciphertext: b64, // content encrypted with the per-message key
+  keys: z.record(z.string(), MessageEnvelope), // userId -> the per-message key, sealed to that member
+});
+export type GroupEnvelope = z.infer<typeof GroupEnvelope>;
+
+/** What travels on the wire and is stored: a 1:1 envelope or a group envelope. */
+export const WireEnvelope = z.union([MessageEnvelope, GroupEnvelope]);
+export type WireEnvelope = z.infer<typeof WireEnvelope>;

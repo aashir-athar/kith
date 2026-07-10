@@ -6,7 +6,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { api } from '@/api/client';
-import { openFrom } from '@/crypto/e2e';
+import { openFrom, openGroupEnvelope } from '@/crypto/e2e';
 import { newId } from '@/lib/id';
 import { conversationPeer, conversations as seedConversations, me, messagesByConversation as seedMessages, registerUser, usersById } from '@/lib/mockData';
 import { BACKEND_ENABLED } from '@/net/config';
@@ -64,7 +64,7 @@ interface ChatState {
   applyEdited: (input: { conversationId: string; seq: number; text: string; editedAt: number }) => void;
   applyDeleted: (input: { conversationId: string; seq: number }) => void;
   hydrateFromServer: () => Promise<void>;
-  ensureServerConversation: (serverConversationId: string, senderId: string) => Promise<void>;
+  ensureServerConversation: (serverConversationId: string) => Promise<void>;
   hydrateHistory: (localConversationId: string) => Promise<void>;
   syncAll: () => void;
   startDirectWithUsername: (username: string) => Promise<string | null>;
@@ -169,28 +169,6 @@ export const useChatStore = create<ChatState>()(
     advance(conversationId, message.id);
   };
 
-  // Real send path (BACKEND_ENABLED): resolve the server conversation, seal, and emit. Delivery
-  // is confirmed by the server 'sent' ack (applySentAck); failure flips the bubble to retry.
-  const sendReal = async (localConvId: string, peerUsername: string, clientId: string, text: string, expiresInSec?: number) => {
-    const token = useSessionStore.getState().serverToken;
-    if (!token) {
-      update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
-      return;
-    }
-    try {
-      let serverId = get().conversations.find((c) => c.id === localConvId)?.serverId;
-      if (!serverId) {
-        const direct = await api.createDirect(token, peerUsername);
-        serverId = direct.id;
-        set((state) => ({ conversations: state.conversations.map((c) => (c.id === localConvId ? { ...c, serverId: direct.id } : c)) }));
-      }
-      const ok = await messaging.sendText(serverId, peerUsername, clientId, text, expiresInSec);
-      if (!ok) update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
-    } catch {
-      update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
-    }
-  };
-
   // The peer's handle for a direct conversation in backend mode, or undefined (mock / group / none).
   const realDirectPeer = (conversationId: string): string | undefined => {
     const conv = get().conversations.find((c) => c.id === conversationId);
@@ -219,29 +197,66 @@ export const useChatStore = create<ChatState>()(
     }
   };
 
-  // Encrypt + upload a picked file, then seal its blob ref to the peer.
-  const sendImageReal = async (localConvId: string, peerUsername: string, clientId: string, uri: string) => {
-    try {
-      const { ref, mime, size } = await uploadLocalMedia(uri, 'image/jpeg');
-      await sendContentReal(localConvId, peerUsername, clientId, { t: 'media', mediaKind: 'image', blobId: ref.blobId, keyHex: ref.keyHex, nonceHex: ref.nonceHex, mime, size });
-    } catch {
-      update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
-    }
+  // The other members of a backend group (userId + handle), used to seal group messages.
+  const realGroupMembers = (conversationId: string): { userId: string; username: string }[] | undefined => {
+    const conv = get().conversations.find((c) => c.id === conversationId);
+    if (!BACKEND_ENABLED || conv?.kind !== 'group') return undefined;
+    const members = conv.participantIds
+      .filter((id) => id !== me.id)
+      .map((id) => {
+        const u = usersById[id];
+        return u ? { userId: id, username: u.username } : null;
+      })
+      .filter((x): x is { userId: string; username: string } => x !== null);
+    return members.length > 0 ? members : undefined;
   };
 
-  const sendDocumentReal = async (localConvId: string, peerUsername: string, clientId: string, uri: string, name: string) => {
-    try {
-      const { ref, mime, size } = await uploadLocalMedia(uri, 'application/octet-stream');
-      await sendContentReal(localConvId, peerUsername, clientId, { t: 'media', mediaKind: 'document', blobId: ref.blobId, keyHex: ref.keyHex, nonceHex: ref.nonceHex, mime, name, size });
-    } catch {
-      update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
+  const isRealConversation = (conversationId: string): boolean => !!realDirectPeer(conversationId) || !!realGroupMembers(conversationId);
+
+  // Deliver content over whichever transport backs the conversation: a 1:1 seal, a group seal, or
+  // the offline demo's optimistic local delivery.
+  const deliverContent = async (localConvId: string, clientId: string, content: Content): Promise<void> => {
+    const peerUsername = realDirectPeer(localConvId);
+    if (peerUsername) {
+      await sendContentReal(localConvId, peerUsername, clientId, content);
+      return;
     }
+    const members = realGroupMembers(localConvId);
+    const serverId = get().conversations.find((c) => c.id === localConvId)?.serverId;
+    if (members && serverId) {
+      try {
+        const ok = await messaging.sendGroupContent(serverId, members, clientId, content);
+        if (!ok) update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
+      } catch {
+        update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
+      }
+      return;
+    }
+    advance(localConvId, clientId);
   };
 
-  const sendVoiceReal = async (localConvId: string, peerUsername: string, clientId: string, uri: string, durationSec: number) => {
+  // Encrypt + upload a picked file, then deliver its blob ref (1:1 or group).
+  const uploadAndDeliver = async (
+    localConvId: string,
+    clientId: string,
+    uri: string,
+    mediaKind: 'image' | 'voice' | 'document',
+    fallbackMime: string,
+    extra?: { name?: string; durationSec?: number },
+  ): Promise<void> => {
     try {
-      const { ref, mime, size } = await uploadLocalMedia(uri, 'audio/mp4');
-      await sendContentReal(localConvId, peerUsername, clientId, { t: 'media', mediaKind: 'voice', blobId: ref.blobId, keyHex: ref.keyHex, nonceHex: ref.nonceHex, mime, size, durationSec });
+      const { ref, mime, size } = await uploadLocalMedia(uri, fallbackMime);
+      await deliverContent(localConvId, clientId, {
+        t: 'media',
+        mediaKind,
+        blobId: ref.blobId,
+        keyHex: ref.keyHex,
+        nonceHex: ref.nonceHex,
+        mime,
+        size,
+        name: extra?.name,
+        durationSec: extra?.durationSec,
+      });
     } catch {
       update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
     }
@@ -282,54 +297,40 @@ export const useChatStore = create<ChatState>()(
       const message: Message = { ...base(conversationId, 'text'), text: trimmed, replyToId: extras?.replyToId };
       if (seconds > 0) message.expiresAt = new Date(new Date(message.createdAt).getTime() + seconds * 1000).toISOString();
       push(conversationId, message);
-      const peerUsername = conv ? (conv.peerUsername ?? conversationPeer(conv)?.username) : undefined;
-      if (BACKEND_ENABLED && conv?.kind === 'direct' && peerUsername) {
-        void sendReal(conversationId, peerUsername, message.id, trimmed, seconds > 0 ? seconds : undefined);
-      } else {
-        advance(conversationId, message.id);
-      }
+      void deliverContent(conversationId, message.id, { t: 'text', body: trimmed, expiresInSec: seconds > 0 ? seconds : undefined });
     },
     sendVoice: (conversationId, uri, durationSec) => {
       const message: Message = { ...base(conversationId, 'voice'), durationSec, mediaUrl: uri };
       push(conversationId, message);
-      const peerUsername = realDirectPeer(conversationId);
-      if (peerUsername) void sendVoiceReal(conversationId, peerUsername, message.id, uri, durationSec);
+      if (isRealConversation(conversationId)) void uploadAndDeliver(conversationId, message.id, uri, 'voice', 'audio/mp4', { durationSec });
       else advance(conversationId, message.id);
     },
     sendImage: (conversationId, mediaUrl) => {
       const message: Message = { ...base(conversationId, 'image'), mediaUrl };
       push(conversationId, message);
-      const peerUsername = realDirectPeer(conversationId);
-      if (peerUsername) void sendImageReal(conversationId, peerUsername, message.id, mediaUrl);
+      if (isRealConversation(conversationId)) void uploadAndDeliver(conversationId, message.id, mediaUrl, 'image', 'image/jpeg');
       else advance(conversationId, message.id);
     },
     sendDocument: (conversationId, uri, fileName, sizeBytes) => {
       const message: Message = { ...base(conversationId, 'document'), fileName, fileSize: formatBytes(sizeBytes), mediaUrl: uri };
       push(conversationId, message);
-      const peerUsername = realDirectPeer(conversationId);
-      if (peerUsername) void sendDocumentReal(conversationId, peerUsername, message.id, uri, fileName);
+      if (isRealConversation(conversationId)) void uploadAndDeliver(conversationId, message.id, uri, 'document', 'application/octet-stream', { name: fileName });
       else advance(conversationId, message.id);
     },
     sendSticker: (conversationId, stickerId) => {
       const message: Message = { ...base(conversationId, 'sticker'), stickerId };
       push(conversationId, message);
-      const peerUsername = realDirectPeer(conversationId);
-      if (peerUsername) void sendContentReal(conversationId, peerUsername, message.id, { t: 'sticker', stickerId });
-      else advance(conversationId, message.id);
+      void deliverContent(conversationId, message.id, { t: 'sticker', stickerId });
     },
     sendLocation: (conversationId, label) => {
       const message: Message = { ...base(conversationId, 'location'), locationLabel: label, latitude: 51.5074, longitude: -0.1278 };
       push(conversationId, message);
-      const peerUsername = realDirectPeer(conversationId);
-      if (peerUsername) void sendContentReal(conversationId, peerUsername, message.id, { t: 'location', label, latitude: 51.5074, longitude: -0.1278 });
-      else advance(conversationId, message.id);
+      void deliverContent(conversationId, message.id, { t: 'location', label, latitude: 51.5074, longitude: -0.1278 });
     },
     sendContact: (conversationId, name, username) => {
       const message: Message = { ...base(conversationId, 'contact'), contactName: name, contactUsername: username };
       push(conversationId, message);
-      const peerUsername = realDirectPeer(conversationId);
-      if (peerUsername) void sendContentReal(conversationId, peerUsername, message.id, { t: 'contact', name, username });
-      else advance(conversationId, message.id);
+      void deliverContent(conversationId, message.id, { t: 'contact', name, username });
     },
     sendPoll: (conversationId, question, options) => {
       const message: Message = {
@@ -337,9 +338,7 @@ export const useChatStore = create<ChatState>()(
         poll: { question, multiple: false, totalVotes: 0, options: options.map((label, i) => ({ id: `po${i}`, label, votes: 0 })) },
       };
       push(conversationId, message);
-      const peerUsername = realDirectPeer(conversationId);
-      if (peerUsername) void sendContentReal(conversationId, peerUsername, message.id, { t: 'poll', question, options });
-      else advance(conversationId, message.id);
+      void deliverContent(conversationId, message.id, { t: 'poll', question, options });
     },
 
     addReaction: (conversationId, messageId, key) => {
@@ -374,15 +373,10 @@ export const useChatStore = create<ChatState>()(
       }
     },
     retryMessage: (conversationId, messageId) => {
-      const conv = get().conversations.find((c) => c.id === conversationId);
       const msg = (get().messages[conversationId] ?? []).find((m) => m.id === messageId);
       update(conversationId, messageId, (m) => ({ ...m, status: 'sending' }));
-      const peerUsername = conv ? (conv.peerUsername ?? conversationPeer(conv)?.username) : undefined;
-      if (BACKEND_ENABLED && conv?.kind === 'direct' && peerUsername && msg?.text) {
-        void sendReal(conversationId, peerUsername, messageId, msg.text);
-      } else {
-        advance(conversationId, messageId);
-      }
+      if (isRealConversation(conversationId) && msg?.text) void deliverContent(conversationId, messageId, { t: 'text', body: msg.text });
+      else advance(conversationId, messageId);
     },
     deleteMessage: (conversationId, messageId) => {
       const conv = get().conversations.find((c) => c.id === conversationId);
@@ -401,9 +395,7 @@ export const useChatStore = create<ChatState>()(
     forwardMessage: (fromId, messageId, toId) => {
       const src = (get().messages[fromId] ?? []).find((m) => m.id === messageId);
       if (!src) return;
-      const conv = get().conversations.find((c) => c.id === toId);
-      const peerUsername = conv ? (conv.peerUsername ?? conversationPeer(conv)?.username) : undefined;
-      const real = BACKEND_ENABLED && conv?.kind === 'direct' && !!peerUsername && src.kind === 'text' && !!src.text;
+      const real = isRealConversation(toId) && src.kind === 'text' && !!src.text;
       const forwarded: Message = {
         ...src,
         id: newId(),
@@ -417,7 +409,7 @@ export const useChatStore = create<ChatState>()(
         pinned: false,
       };
       push(toId, forwarded);
-      if (real && peerUsername && src.text) void sendReal(toId, peerUsername, forwarded.id, src.text);
+      if (real && src.text) void deliverContent(toId, forwarded.id, { t: 'text', body: src.text });
     },
 
     markRead: (conversationId) => {
@@ -513,11 +505,12 @@ export const useChatStore = create<ChatState>()(
     },
     createGroup: (name, memberIds) => {
       const id = newId();
+      const memberUsers = memberIds.map((mid) => usersById[mid]).filter((u): u is (typeof usersById)[string] => !!u);
       const conversation: Conversation = {
         id,
         kind: 'group',
         title: name,
-        participantIds: [me.id, ...memberIds],
+        participantIds: [me.id, ...memberUsers.map((u) => u.id)],
         unreadCount: 0,
         pinned: false,
         muted: false,
@@ -526,6 +519,21 @@ export const useChatStore = create<ChatState>()(
         lastMessagePreview: 'New group',
       };
       set((state) => ({ conversations: [conversation, ...state.conversations] }));
+      // In a live build, create the group on the relay and reconcile the server id + members.
+      const token = useSessionStore.getState().serverToken;
+      const myServerId = useSessionStore.getState().serverUserId;
+      if (BACKEND_ENABLED && token && memberUsers.length > 0) {
+        void api
+          .createGroup(token, name, memberUsers.map((u) => u.username))
+          .then((res) => {
+            for (const p of res.participants) registerUser({ id: p.id, username: p.username, displayName: p.displayName });
+            const others = res.participants.filter((p) => p.id !== myServerId).map((p) => p.id);
+            set((state) => ({
+              conversations: state.conversations.map((c) => (c.id === id ? { ...c, serverId: res.id, participantIds: [me.id, ...others] } : c)),
+            }));
+          })
+          .catch(() => undefined);
+      }
       return id;
     },
     createDirect: (userId) => {
@@ -548,17 +556,16 @@ export const useChatStore = create<ChatState>()(
       return id;
     },
 
-    receiveServerMessage: ({ serverConversationId, seq, content, createdAt, expiresInSec }) => {
+    receiveServerMessage: ({ serverConversationId, seq, senderId, content, createdAt, expiresInSec }) => {
       const conv = get().conversations.find((c) => c.serverId === serverConversationId);
       if (!conv || hasSeq(conv.id, seq)) return;
       if ((get().expiredSeqs[conv.id] ?? []).includes(seq)) return; // already expired locally; do not resurrect
-      const peer = conversationPeer(conv);
-      if (peer && get().blockedUserIds.includes(peer.id)) return; // blocked sender: drop inbound
+      if (get().blockedUserIds.includes(senderId)) return; // blocked sender (direct peer or group member)
       const fields = messageFieldsFromContent(content);
       push(conv.id, {
         id: newId(),
         conversationId: conv.id,
-        senderId: peer?.id ?? conv.id,
+        senderId,
         ...fields,
         createdAt: new Date(createdAt).toISOString(),
         status: 'read',
@@ -648,13 +655,14 @@ export const useChatStore = create<ChatState>()(
       if (!token) return;
       const { conversations: summaries } = await api.listConversations(token);
       const convs: Conversation[] = summaries.map((s) => {
-        if (s.peer) registerUser({ id: s.peer.id, username: s.peer.username, displayName: s.peer.displayName });
+        for (const m of s.members) registerUser({ id: m.id, username: m.username, displayName: m.displayName });
         return {
           id: s.id,
           kind: s.kind,
           serverId: s.id,
-          peerUsername: s.peer?.username,
-          participantIds: s.peer ? [me.id, s.peer.id] : [me.id],
+          title: s.kind === 'group' ? (s.name ?? 'Group') : undefined,
+          peerUsername: s.kind === 'direct' ? s.peer?.username : undefined,
+          participantIds: [me.id, ...s.members.map((m) => m.id)],
           unreadCount: s.unreadCount,
           pinned: false,
           muted: false,
@@ -663,33 +671,25 @@ export const useChatStore = create<ChatState>()(
           lastMessagePreview: s.lastMessage ? 'Encrypted message' : '',
         };
       });
-      set({ conversations: convs });
+      // Preserve device-local flags (mute, disappearing, verified, archive, pin) across hydration.
+      set((state) => {
+        const prev = new Map(state.conversations.filter((c) => c.serverId).map((c) => [c.serverId, c]));
+        return {
+          conversations: convs.map((c) => {
+            const existing = c.serverId ? prev.get(c.serverId) : undefined;
+            return existing
+              ? { ...c, muted: existing.muted, disappearSeconds: existing.disappearSeconds, verified: existing.verified, archived: existing.archived, pinned: existing.pinned }
+              : c;
+          }),
+        };
+      });
     },
 
-    ensureServerConversation: async (serverConversationId, senderId) => {
+    ensureServerConversation: async (serverConversationId) => {
       if (get().conversations.some((c) => c.serverId === serverConversationId)) return;
-      const token = useSessionStore.getState().serverToken;
-      if (!token) return;
-      try {
-        const peer = await api.user(token, senderId);
-        registerUser({ id: peer.id, username: peer.username, displayName: peer.displayName });
-        const conversation: Conversation = {
-          id: serverConversationId,
-          kind: 'direct',
-          serverId: serverConversationId,
-          peerUsername: peer.username,
-          participantIds: [me.id, peer.id],
-          unreadCount: 0,
-          pinned: false,
-          muted: false,
-          encrypted: true,
-          lastMessageAt: new Date().toISOString(),
-          lastMessagePreview: '',
-        };
-        set((state) => ({ conversations: [conversation, ...state.conversations] }));
-      } catch {
-        await get().hydrateFromServer();
-      }
+      // Pull the authoritative list, which returns the conversation with its correct kind and
+      // members (direct or group). Simpler and correct for both.
+      await get().hydrateFromServer();
     },
 
     hydrateHistory: async (localConversationId) => {
@@ -709,11 +709,19 @@ export const useChatStore = create<ChatState>()(
         // Skip anything already expired locally, so disappearing messages never come back.
         if (dto.senderId === myServerId || hasSeq(localConversationId, dto.seq) || expired.includes(dto.seq)) continue;
         if (dto.deleted) {
-          loaded.push({ id: dto.id, conversationId: localConversationId, senderId: peerLocalId, kind: 'text', deleted: true, createdAt: new Date(dto.createdAt).toISOString(), status: 'read', serverSeq: dto.seq });
+          loaded.push({ id: dto.id, conversationId: localConversationId, senderId: dto.senderId, kind: 'text', deleted: true, createdAt: new Date(dto.createdAt).toISOString(), status: 'read', serverSeq: dto.seq });
           continue;
         }
         try {
-          const content = decodeContent(await openFrom(dto.envelope));
+          const env = dto.envelope;
+          let plaintext: string | null;
+          if (env.type === 'group') {
+            plaintext = myServerId ? await openGroupEnvelope(env, myServerId) : null;
+          } else {
+            plaintext = await openFrom(env);
+          }
+          if (plaintext == null) continue;
+          const content = decodeContent(plaintext);
           if (content.t === 'reaction') {
             reactions.push({ targetSeq: content.targetSeq, key: content.key, remove: content.remove });
             continue;
@@ -730,7 +738,7 @@ export const useChatStore = create<ChatState>()(
           loaded.push({
             id: dto.id,
             conversationId: localConversationId,
-            senderId: peerLocalId,
+            senderId: dto.senderId,
             ...fields,
             editedAt: dto.editedAt ? new Date(dto.editedAt).toISOString() : undefined,
             createdAt: new Date(dto.createdAt).toISOString(),

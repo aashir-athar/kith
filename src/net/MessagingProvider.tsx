@@ -52,7 +52,7 @@ export function MessagingProvider({ children }: { children: ReactNode }) {
     void topUpPreKeys(token);
     void registerForPush(token);
     messaging.init(token, {
-      ensureConversation: (serverConvId, senderId) => useChatStore.getState().ensureServerConversation(serverConvId, senderId),
+      ensureConversation: (serverConvId) => useChatStore.getState().ensureServerConversation(serverConvId),
       onIncoming: (m) =>
         useChatStore.getState().receiveServerMessage({ serverConversationId: m.conversationId, seq: m.seq, senderId: m.senderId, content: m.content, createdAt: m.createdAt, expiresInSec: m.expiresInSec }),
       onReaction: (r) => useChatStore.getState().applyRemoteReaction({ serverConversationId: r.conversationId, targetSeq: r.targetSeq, key: r.key, remove: r.remove, senderId: r.senderId }),

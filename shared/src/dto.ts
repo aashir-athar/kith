@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 
-import { b64, MessageEnvelope } from './envelope';
+import { b64, WireEnvelope } from './envelope';
 import { OneTimePreKey, SignedPreKey } from './keys';
 
 export const USERNAME_RE = /^[a-z0-9_]+$/;
@@ -76,7 +76,7 @@ export const MessageDTO = z.object({
   conversationId: z.string(),
   seq: z.number(),
   senderId: z.string(),
-  envelope: MessageEnvelope,
+  envelope: WireEnvelope,
   createdAt: z.number(),
   editedAt: z.number().nullable().optional(),
   deleted: z.boolean().optional(),
@@ -90,7 +90,9 @@ export type HistoryResponse = z.infer<typeof HistoryResponse>;
 export const ConversationSummary = z.object({
   id: z.string(),
   kind: z.enum(['direct', 'group']),
-  peer: UserPublic.nullable(),
+  name: z.string().nullable(), // group name (null for direct)
+  peer: UserPublic.nullable(), // the other member (direct only; first other member for groups)
+  members: z.array(UserPublic), // all other participants (used to seal group messages and render)
   lastMessage: MessageDTO.nullable(),
   unreadCount: z.number(),
   peerLastReadSeq: z.number(),

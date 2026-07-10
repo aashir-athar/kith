@@ -3,11 +3,14 @@
 // and open inbound envelopes (burning the consumed one-time prekey). Plaintext never leaves here.
 
 import {
+  decryptSym,
   derivePublics,
+  encryptSym,
   envelopeFromWire,
   envelopeToWire,
   fromHex,
   generateX25519,
+  type GroupEnvelope,
   identityFromSeed,
   type MessageEnvelope,
   open,
@@ -120,30 +123,33 @@ export async function signChallenge(challenge: string): Promise<string> {
   return toHex(signBytes(new TextEncoder().encode(challenge), identity.ikSecret));
 }
 
-/** Seal plaintext to a recipient's fetched prekey bundle. */
-export async function sealTo(bundle: PreKeyBundle, plaintext: string): Promise<MessageEnvelope> {
+function bundleToBytes(bundle: PreKeyBundle) {
+  return {
+    ikPub: fromHex(bundle.ikPub),
+    ikDhPub: fromHex(bundle.ikDhPub),
+    spkId: bundle.spk.id,
+    spkPub: fromHex(bundle.spk.pub),
+    spkSig: fromHex(bundle.spk.sig),
+    opk: bundle.opk ? { id: bundle.opk.id, pub: fromHex(bundle.opk.pub) } : null,
+  };
+}
+
+/** Seal raw bytes to a recipient's fetched prekey bundle. */
+export async function sealBytesTo(bundle: PreKeyBundle, bytes: Uint8Array): Promise<MessageEnvelope> {
   const identity = await store.loadIdentity();
   if (!identity) throw new Error('no identity on this device');
   const { ikPub, ikDhPub } = derivePublics(identity.ikSecret, identity.ikDhSecret);
   const sender: SenderIdentity = { ikPub, ikDhPub, ikDhSecret: identity.ikDhSecret };
-  const env = seal(
-    new TextEncoder().encode(plaintext),
-    sender,
-    {
-      ikPub: fromHex(bundle.ikPub),
-      ikDhPub: fromHex(bundle.ikDhPub),
-      spkId: bundle.spk.id,
-      spkPub: fromHex(bundle.spk.pub),
-      spkSig: fromHex(bundle.spk.sig),
-      opk: bundle.opk ? { id: bundle.opk.id, pub: fromHex(bundle.opk.pub) } : null,
-    },
-    randomBytes,
-  );
-  return envelopeToWire(env);
+  return envelopeToWire(seal(bytes, sender, bundleToBytes(bundle), randomBytes));
+}
+
+/** Seal plaintext to a recipient's fetched prekey bundle. */
+export async function sealTo(bundle: PreKeyBundle, plaintext: string): Promise<MessageEnvelope> {
+  return sealBytesTo(bundle, new TextEncoder().encode(plaintext));
 }
 
 /** Open an inbound envelope with our stored secrets; burn the consumed one-time prekey. */
-export async function openFrom(wire: MessageEnvelope): Promise<string> {
+export async function openBytesFrom(wire: MessageEnvelope): Promise<Uint8Array> {
   const identity = await store.loadIdentity();
   const spk = await store.loadSignedPreKey();
   if (!identity || !spk) throw new Error('no identity/prekey on this device');
@@ -158,5 +164,36 @@ export async function openFrom(wire: MessageEnvelope): Promise<string> {
     delete opks[wire.usedOpkId];
     await store.saveOneTimePreKeys(opks);
   }
+  return plaintext;
+}
+
+export async function openFrom(wire: MessageEnvelope): Promise<string> {
+  return new TextDecoder().decode(await openBytesFrom(wire));
+}
+
+/** Encrypt group content once with a fresh key, and seal that key to each member via X3DH. The
+ * relay stores only the ciphertext and the per-member sealed keys; never the plaintext or the key. */
+export async function buildGroupEnvelope(plaintext: string, members: { userId: string; bundle: PreKeyBundle }[]): Promise<GroupEnvelope> {
+  const identity = await store.loadIdentity();
+  if (!identity) throw new Error('no identity on this device');
+  const { ikPub, ikDhPub } = derivePublics(identity.ikSecret, identity.ikDhSecret);
+  const sender: SenderIdentity = { ikPub, ikDhPub, ikDhSecret: identity.ikDhSecret };
+  const mk = randomBytes(32);
+  const { nonce, ciphertext } = encryptSym(mk, new TextEncoder().encode(plaintext), randomBytes);
+  const keys: Record<string, MessageEnvelope> = {};
+  for (const m of members) {
+    keys[m.userId] = envelopeToWire(seal(mk, sender, bundleToBytes(m.bundle), randomBytes));
+  }
+  mk.fill(0);
+  return { v: 1, type: 'group', nonce: toHex(nonce), ciphertext: toHex(ciphertext), keys };
+}
+
+/** Open a group envelope addressed to us: unseal our copy of the message key, then decrypt. */
+export async function openGroupEnvelope(env: GroupEnvelope, myUserId: string): Promise<string | null> {
+  const wire = env.keys[myUserId];
+  if (!wire) return null;
+  const mk = await openBytesFrom(wire);
+  const plaintext = decryptSym(mk, fromHex(env.nonce), fromHex(env.ciphertext));
+  mk.fill(0);
   return new TextDecoder().decode(plaintext);
 }

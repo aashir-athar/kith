@@ -135,7 +135,7 @@ export default function ChatInfoScreen() {
           <Text variant="displayLg" center numberOfLines={1}>
             {title}
           </Text>
-          {peer ? (
+          {peer && !isGroup ? (
             <Text variant="callout" tone="secondary">
               @{peer.username}
             </Text>
@@ -162,7 +162,8 @@ export default function ChatInfoScreen() {
           {quickAction('Search', Search, () => router.push('/search'))}
         </View>
 
-        <View style={{ paddingHorizontal: theme.space.xl }}>
+        {!isGroup ? (
+          <View style={{ paddingHorizontal: theme.space.xl }}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Verify safety number"
@@ -178,7 +179,8 @@ export default function ChatInfoScreen() {
               <Icon icon={ChevronRight} size={18} tone="tertiary" />
             </Surface>
           </Pressable>
-        </View>
+          </View>
+        ) : null}
 
         {media.length > 0 ? (
           <>
@@ -253,7 +255,7 @@ export default function ChatInfoScreen() {
           />
         </Surface>
 
-        {peer ? (
+        {peer && !isGroup ? (
           <>
             <ListSectionLabel label="Safety" />
             <Surface variant="flat" style={{ marginHorizontal: theme.space.xl, overflow: 'hidden' }}>

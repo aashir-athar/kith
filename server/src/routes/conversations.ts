@@ -4,10 +4,12 @@
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 
+import { inArray } from 'drizzle-orm';
+
 import { db } from '../db';
 import { users } from '../db/schema';
 import { listBlockedIds } from '../lib/blocks';
-import { createOrGetDirect, listConversations, participantIds, setMuted } from '../lib/conversations';
+import { createGroup, createOrGetDirect, listConversations, participantIds, setMuted } from '../lib/conversations';
 import { history, isParticipant } from '../lib/messages';
 import { requireAuth, type AuthEnv } from '../middleware/auth';
 
@@ -28,6 +30,24 @@ conversationsRoute.post('/direct', async (c) => {
   if (target.id === me) return c.json({ error: 'cannot message yourself' }, 400);
   const conv = await createOrGetDirect(me, target.id);
   return c.json({ id: conv.id, kind: conv.kind, participants: await participantIds(conv.id) });
+});
+
+conversationsRoute.post('/group', async (c) => {
+  const body = (await c.req.json().catch(() => null)) as { name?: unknown; usernames?: unknown } | null;
+  const name = typeof body?.name === 'string' ? body.name.trim() : '';
+  const usernames = Array.isArray(body?.usernames) ? body.usernames.filter((u): u is string => typeof u === 'string') : [];
+  if (name.length === 0 || usernames.length === 0) return c.json({ error: 'invalid request' }, 400);
+  const me = c.get('session').userId;
+  const found = await db.select({ id: users.id, username: users.username, displayName: users.displayName }).from(users).where(inArray(users.username, usernames));
+  if (found.length === 0) return c.json({ error: 'no known members' }, 404);
+  const conv = await createGroup(
+    me,
+    name,
+    found.map((u) => u.id),
+  );
+  const [meRow] = await db.select({ id: users.id, username: users.username, displayName: users.displayName }).from(users).where(eq(users.id, me)).limit(1);
+  const participants = [...(meRow ? [meRow] : []), ...found];
+  return c.json({ id: conv.id, kind: conv.kind, name: conv.name, participants });
 });
 
 conversationsRoute.get('/:id/messages', async (c) => {

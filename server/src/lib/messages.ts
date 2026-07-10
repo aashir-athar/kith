@@ -3,7 +3,7 @@
 // and routing metadata as jsonb; the server never sees plaintext. Every read serializes to the
 // shared MessageDTO (senderId), the same shape the socket 'message' frame uses.
 
-import { fromHex, MessageDTO, MessageEnvelope, toHex } from '@kith/shared';
+import { fromHex, MessageDTO, toHex, WireEnvelope } from '@kith/shared';
 import { and, asc, desc, eq, gt, lt, notInArray, sql } from 'drizzle-orm';
 
 import { db as defaultDb, type Db } from '../db';
@@ -19,7 +19,7 @@ export async function isParticipant(conversationId: string, userId: string, db: 
 }
 
 export function toDTO(row: typeof messages.$inferSelect): MessageDTO {
-  const envelope = MessageEnvelope.parse({ ...row.envelope, ciphertext: toHex(row.ciphertext) });
+  const envelope = WireEnvelope.parse({ ...row.envelope, ciphertext: toHex(row.ciphertext) });
   return {
     id: row.id,
     conversationId: row.conversationId,
@@ -33,7 +33,7 @@ export function toDTO(row: typeof messages.$inferSelect): MessageDTO {
 }
 
 /** Edit (re-seal) a message. Only the original sender can; a deleted message cannot be edited. */
-export async function editMessage(conversationId: string, seq: number, senderUserId: string, envelope: MessageEnvelope, db: Db = defaultDb): Promise<boolean> {
+export async function editMessage(conversationId: string, seq: number, senderUserId: string, envelope: WireEnvelope, db: Db = defaultDb): Promise<boolean> {
   const { ciphertext, ...routing } = envelope;
   const updated = await db
     .update(messages)
@@ -65,7 +65,7 @@ export async function persistMessage(
     conversationId: string;
     senderUserId: string;
     senderDeviceId: string;
-    envelope: MessageEnvelope;
+    envelope: WireEnvelope;
   },
   db: Db = defaultDb,
 ): Promise<MessageDTO> {

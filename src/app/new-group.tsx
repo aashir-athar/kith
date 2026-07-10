@@ -12,17 +12,34 @@ import { Icon } from '@/components/ui/Icon';
 import { ListSectionLabel } from '@/components/ui/ListSectionLabel';
 import { Surface } from '@/components/ui/Surface';
 import { Text } from '@/components/ui/Text';
-import { users } from '@/lib/mockData';
+import { conversationPeer, users } from '@/lib/mockData';
+import { BACKEND_ENABLED } from '@/net/config';
 import { useChatStore } from '@/stores/useChatStore';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fontFamily } from '@/theme/typography';
+import type { User } from '@/types/models';
 
 export default function NewGroupScreen() {
   const theme = useTheme();
   const createGroup = useChatStore((s) => s.createGroup);
+  const conversations = useChatStore((s) => s.conversations);
   const [name, setName] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
   const valid = name.trim().length > 0 && selected.length > 0;
+
+  // In a live build, members come from people you already have a direct chat with (registered
+  // contacts); the offline demo uses the seed roster.
+  const contacts: readonly User[] = BACKEND_ENABLED
+    ? Array.from(
+        new Map(
+          conversations
+            .filter((c) => c.kind === 'direct')
+            .map((c) => conversationPeer(c))
+            .filter((u): u is User => !!u)
+            .map((u) => [u.id, u]),
+        ).values(),
+      )
+    : users;
 
   const toggle = (id: string) =>
     setSelected((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
@@ -60,7 +77,14 @@ export default function NewGroupScreen() {
 
       <ListSectionLabel label={selected.length > 0 ? `${selected.length} selected` : 'Add members'} />
       <ScrollView contentContainerStyle={{ paddingBottom: theme.space['6xl'] }} keyboardShouldPersistTaps="handled">
-        {users.map((user) => {
+        {contacts.length === 0 ? (
+          <View style={{ paddingHorizontal: theme.space.xl, paddingVertical: theme.space.lg }}>
+            <Text variant="callout" tone="tertiary">
+              Start a direct chat with someone first, then you can add them to a group.
+            </Text>
+          </View>
+        ) : null}
+        {contacts.map((user) => {
           const on = selected.includes(user.id);
           return (
             <Pressable

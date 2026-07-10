@@ -4,11 +4,11 @@
 
 import { z } from 'zod';
 
-import { MessageEnvelope } from './envelope';
+import { WireEnvelope } from './envelope';
 
 export const ClientFrame = z.discriminatedUnion('t', [
-  z.object({ t: z.literal('send'), conversationId: z.string(), clientId: z.string(), envelope: MessageEnvelope }),
-  z.object({ t: z.literal('edit'), conversationId: z.string(), targetSeq: z.number().int().nonnegative(), envelope: MessageEnvelope }),
+  z.object({ t: z.literal('send'), conversationId: z.string(), clientId: z.string(), envelope: WireEnvelope }),
+  z.object({ t: z.literal('edit'), conversationId: z.string(), targetSeq: z.number().int().nonnegative(), envelope: WireEnvelope }),
   z.object({ t: z.literal('delete'), conversationId: z.string(), targetSeq: z.number().int().nonnegative() }),
   z.object({ t: z.literal('delivered'), conversationId: z.string(), seq: z.number().int().nonnegative() }),
   z.object({ t: z.literal('read'), conversationId: z.string(), seq: z.number().int().nonnegative() }),
@@ -25,11 +25,11 @@ export const ServerFrame = z.discriminatedUnion('t', [
     seq: z.number().int().nonnegative(),
     id: z.string(),
     senderId: z.string(),
-    envelope: MessageEnvelope,
+    envelope: WireEnvelope,
     createdAt: z.number(),
   }),
   z.object({ t: z.literal('sent'), clientId: z.string(), id: z.string(), conversationId: z.string(), seq: z.number(), createdAt: z.number() }),
-  z.object({ t: z.literal('edited'), conversationId: z.string(), seq: z.number(), envelope: MessageEnvelope, editedAt: z.number() }),
+  z.object({ t: z.literal('edited'), conversationId: z.string(), seq: z.number(), envelope: WireEnvelope, editedAt: z.number() }),
   z.object({ t: z.literal('deleted'), conversationId: z.string(), seq: z.number() }),
   z.object({
     t: z.literal('receipt'),

@@ -44,6 +44,8 @@ export const api = {
   rotateKeys: (token: string, body: RotateKeysRequest) => post<{ ok: boolean }>('/keys/rotate', body, token),
   ticket: (token: string) => post<{ ticket: string; expiresAt: number }>('/rt/ticket', {}, token),
   createDirect: (token: string, username: string) => post<DirectConversation>('/conversations/direct', { username }, token),
+  createGroup: (token: string, name: string, usernames: string[]) =>
+    post<{ id: string; kind: string; name: string; participants: UserPublic[] }>('/conversations/group', { name, usernames }, token),
   listConversations: (token: string) => get<{ conversations: ConversationSummary[] }>('/conversations', token),
   history: (token: string, conversationId: string, before?: number) =>
     get<{ messages: MessageDTO[] }>(`/conversations/${conversationId}/messages${before ? `?before=${before}` : ''}`, token),

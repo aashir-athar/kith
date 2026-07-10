@@ -6,6 +6,8 @@ import { randomBytes as nodeRandomBytes } from 'node:crypto';
 import { test } from 'node:test';
 
 import {
+  decryptSym,
+  encryptSym,
   envelopeFromWire,
   envelopeToWire,
   generateIdentity,
@@ -99,6 +101,30 @@ test('a seed-derived identity can seal and be opened', () => {
   const alice = identityFromSeed(rnd(64));
   const env = seal(enc('from a recovered identity'), { ikPub: alice.ikPub, ikDhPub: alice.ikDhPub, ikDhSecret: alice.ikDhSecret }, bob.bundle, rnd);
   assert.equal(dec(open(env, bob.keys)), 'from a recovered identity');
+});
+
+test('group message: content encrypted once, message key sealed to each recipient', () => {
+  const bob = setupRecipient();
+  const carol = setupRecipient();
+  const alice = sender();
+
+  // Encrypt the content once with a fresh per-message key, then seal that key to each member.
+  const mk = rnd(32);
+  const { nonce, ciphertext } = encryptSym(mk, enc('hello everyone'), rnd);
+  const toBob = seal(mk, alice, bob.bundle, rnd);
+  const toCarol = seal(mk, alice, carol.bundle, rnd);
+
+  // Each member unseals their copy of the key and decrypts the shared ciphertext.
+  const bobMk = open(toBob, bob.keys);
+  const carolMk = open(toCarol, carol.keys);
+  assert.deepEqual(bobMk, mk);
+  assert.deepEqual(carolMk, mk);
+  assert.equal(dec(decryptSym(bobMk, nonce, ciphertext)), 'hello everyone');
+  assert.equal(dec(decryptSym(carolMk, nonce, ciphertext)), 'hello everyone');
+
+  // A non-member (Mallory) cannot unseal the key.
+  const mallory = setupRecipient();
+  assert.throws(() => open(toBob, mallory.keys));
 });
 
 test('safety number is deterministic, symmetric, and key-dependent', () => {

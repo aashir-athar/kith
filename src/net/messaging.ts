@@ -5,9 +5,10 @@
 
 import { api } from '@/api/client';
 import { KithSocket } from '@/api/socket';
-import { openFrom, sealTo } from '@/crypto/e2e';
+import { buildGroupEnvelope, openFrom, openGroupEnvelope, sealTo } from '@/crypto/e2e';
 import { newId } from '@/lib/id';
 import { type Content, decodeContent, encodeContent } from '@/net/content';
+import { useSessionStore } from '@/stores/useSessionStore';
 import type { ServerFrame } from '@kith/shared';
 
 /** A decoded message-producing payload, mapped to the app's message kinds. */
@@ -81,7 +82,17 @@ class Messaging {
     if (!this.handlers) return;
     if (frame.t === 'message') {
       try {
-        const content = decodeContent(await openFrom(frame.envelope));
+        const env = frame.envelope;
+        let plaintext: string;
+        if (env.type === 'group') {
+          const myUserId = useSessionStore.getState().serverUserId;
+          const pt = myUserId ? await openGroupEnvelope(env, myUserId) : null;
+          if (pt == null) return; // group message not addressed to this device
+          plaintext = pt;
+        } else {
+          plaintext = await openFrom(env);
+        }
+        const content = decodeContent(plaintext);
         await this.handlers.ensureConversation(frame.conversationId, frame.senderId);
         if (content.t === 'reaction') {
           this.handlers.onReaction({ conversationId: frame.conversationId, targetSeq: content.targetSeq, key: content.key, remove: content.remove, senderId: frame.senderId });
@@ -109,7 +120,17 @@ class Messaging {
       this.handlers.onReceipt({ conversationId: frame.conversationId, seq: frame.seq, userId: frame.userId, kind: frame.kind });
     } else if (frame.t === 'edited') {
       try {
-        const content = decodeContent(await openFrom(frame.envelope));
+        const env = frame.envelope;
+        let plaintext: string;
+        if (env.type === 'group') {
+          const myUserId = useSessionStore.getState().serverUserId;
+          const pt = myUserId ? await openGroupEnvelope(env, myUserId) : null;
+          if (pt == null) return;
+          plaintext = pt;
+        } else {
+          plaintext = await openFrom(env);
+        }
+        const content = decodeContent(plaintext);
         const text = content.t === 'text' ? content.body : '';
         this.handlers.onEdited({ conversationId: frame.conversationId, seq: frame.seq, text, editedAt: frame.editedAt });
       } catch {
@@ -132,6 +153,15 @@ class Messaging {
     if (!this.token || !this.socket) return false;
     const bundle = await api.bundle(this.token, peerUsername);
     const envelope = await sealTo(bundle, encodeContent(content));
+    return this.socket.send({ t: 'send', conversationId, clientId, envelope });
+  }
+
+  /** Send content to a group: encrypt once, seal the message key to each member's bundle. */
+  async sendGroupContent(conversationId: string, members: { userId: string; username: string }[], clientId: string, content: Content): Promise<boolean> {
+    if (!this.token || !this.socket || members.length === 0) return false;
+    const token = this.token;
+    const bundles = await Promise.all(members.map(async (m) => ({ userId: m.userId, bundle: await api.bundle(token, m.username) })));
+    const envelope = await buildGroupEnvelope(encodeContent(content), bundles);
     return this.socket.send({ t: 'send', conversationId, clientId, envelope });
   }
 

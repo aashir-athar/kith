@@ -35,6 +35,18 @@ export async function createOrGetDirect(userA: string, userB: string, db: Db = d
   return conv;
 }
 
+/** Create a named group with the creator and the given members as participants. */
+export async function createGroup(creatorId: string, name: string, memberIds: string[], db: Db = defaultDb) {
+  const [conv] = await db.insert(conversations).values({ kind: 'group', name }).returning();
+  if (!conv) throw new Error('group insert failed');
+  const members = Array.from(new Set([creatorId, ...memberIds]));
+  await db
+    .insert(conversationParticipants)
+    .values(members.map((userId) => ({ conversationId: conv.id, userId })))
+    .onConflictDoNothing();
+  return conv;
+}
+
 export async function participantIds(conversationId: string, db: Db = defaultDb): Promise<string[]> {
   const rows = await db
     .select({ userId: conversationParticipants.userId })
@@ -79,20 +91,18 @@ export async function listConversations(userId: string, db: Db = defaultDb): Pro
       .from(conversationParticipants)
       .where(and(eq(conversationParticipants.conversationId, conv.id), ne(conversationParticipants.userId, userId)));
     const peerPart = others[0];
-    let peer: ConversationSummary['peer'] = null;
-    if (peerPart) {
-      const [u] = await db
-        .select({ id: users.id, username: users.username, displayName: users.displayName })
-        .from(users)
-        .where(eq(users.id, peerPart.userId))
-        .limit(1);
-      peer = u ?? null;
-    }
+    const otherIds = others.map((o) => o.userId);
+    const members: ConversationSummary['members'] = otherIds.length
+      ? await db.select({ id: users.id, username: users.username, displayName: users.displayName }).from(users).where(inArray(users.id, otherIds))
+      : [];
+    const peer = members[0] ?? null;
     const [lastRow] = await db.select().from(messages).where(eq(messages.conversationId, conv.id)).orderBy(desc(messages.seq)).limit(1);
     summaries.push({
       id: conv.id,
       kind: conv.kind,
+      name: conv.name ?? null,
       peer,
+      members,
       lastMessage: lastRow ? toDTO(lastRow) : null,
       unreadCount: Math.max(0, conv.nextSeq - 1 - mp.lastReadSeq),
       peerLastReadSeq: peerPart?.lastReadSeq ?? 0,
