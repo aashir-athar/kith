@@ -51,7 +51,8 @@
         {
           "photosPermission": "Kith needs access to your photos so you can send them, encrypted, in a chat."
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

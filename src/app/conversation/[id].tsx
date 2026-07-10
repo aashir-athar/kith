@@ -4,6 +4,7 @@
 
 import { FlashList } from '@shopify/flash-list';
 import * as Clipboard from 'expo-clipboard';
+import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Phone, Video } from 'lucide-react-native';
@@ -178,6 +179,12 @@ export default function ConversationScreen() {
     if (asset) sendImage(cid, asset.uri);
   };
 
+  const pickDocument = async () => {
+    const res = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+    const asset = res.canceled ? undefined : res.assets[0];
+    if (asset) sendDocument(cid, asset.uri, asset.name, asset.size ?? undefined);
+  };
+
   const handleAttach = (kind: AttachmentKind) => {
     switch (kind) {
       case 'photo':
@@ -187,7 +194,7 @@ export default function ConversationScreen() {
         void captureImage();
         break;
       case 'document':
-        sendDocument(cid, 'Field-brief.pdf', '1.8 MB');
+        void pickDocument();
         break;
       case 'location':
         sendLocation(cid, 'Current location');
@@ -339,12 +346,7 @@ export default function ConversationScreen() {
         onAction={handleAction}
         onReact={(key, message) => addReaction(cid, message.id, key)}
       />
-      <AttachmentSheet
-        visible={attachVisible}
-        onClose={() => setAttachVisible(false)}
-        onSelect={handleAttach}
-        exclude={BACKEND_ENABLED ? ['document'] : []}
-      />
+      <AttachmentSheet visible={attachVisible} onClose={() => setAttachVisible(false)} onSelect={handleAttach} />
       <StickerPicker visible={stickerVisible} onClose={() => setStickerVisible(false)} onSelect={(id) => sendSticker(cid, id)} />
       <ForwardSheet
         visible={forwardId !== null}

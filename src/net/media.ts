@@ -30,9 +30,12 @@ export async function uploadLocalMedia(uri: string, fallbackMime: string): Promi
   return { ref, mime: mimeFromUri(uri, fallbackMime), size: bytes.length };
 }
 
-/** Download + decrypt a blob into the cache (once) and return its local file:// uri for rendering. */
-export async function downloadMediaToCache(blob: BlobRef): Promise<string> {
-  const file = new File(Paths.cache, `kith-${blob.blobId}`);
+/** Download + decrypt a blob into the cache (once) and return its local file:// uri. An optional
+ * name lets the cache file keep the original extension, which document viewers rely on. */
+export async function downloadMediaToCache(blob: BlobRef, name?: string): Promise<string> {
+  const ext = name?.split('.').pop();
+  const cacheName = ext && ext.length > 0 && ext.length <= 5 ? `kith-${blob.blobId}.${ext}` : `kith-${blob.blobId}`;
+  const file = new File(Paths.cache, cacheName);
   if (!file.exists) {
     const bytes = await downloadDecrypted(blob);
     file.write(bytes);

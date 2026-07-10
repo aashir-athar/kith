@@ -31,7 +31,7 @@ interface ChatState {
   sendText: (conversationId: string, text: string, extras?: SendExtras) => void;
   sendVoice: (conversationId: string, durationSec: number) => void;
   sendImage: (conversationId: string, mediaUrl: string) => void;
-  sendDocument: (conversationId: string, fileName: string, fileSize: string) => void;
+  sendDocument: (conversationId: string, uri: string, fileName: string, sizeBytes?: number) => void;
   sendSticker: (conversationId: string, stickerId: string) => void;
   sendLocation: (conversationId: string, label: string) => void;
   sendContact: (conversationId: string, name: string, username: string) => void;
@@ -229,6 +229,15 @@ export const useChatStore = create<ChatState>()(
     }
   };
 
+  const sendDocumentReal = async (localConvId: string, peerUsername: string, clientId: string, uri: string, name: string) => {
+    try {
+      const { ref, mime, size } = await uploadLocalMedia(uri, 'application/octet-stream');
+      await sendContentReal(localConvId, peerUsername, clientId, { t: 'media', mediaKind: 'document', blobId: ref.blobId, keyHex: ref.keyHex, nonceHex: ref.nonceHex, mime, name, size });
+    } catch {
+      update(localConvId, clientId, (m) => ({ ...m, status: 'failed' }));
+    }
+  };
+
   const update = (conversationId: string, messageId: string, fn: (m: Message) => Message) =>
     set((state) => ({
       messages: {
@@ -279,8 +288,13 @@ export const useChatStore = create<ChatState>()(
       if (peerUsername) void sendImageReal(conversationId, peerUsername, message.id, mediaUrl);
       else advance(conversationId, message.id);
     },
-    sendDocument: (conversationId, fileName, fileSize) =>
-      append(conversationId, { ...base(conversationId, 'document'), fileName, fileSize }),
+    sendDocument: (conversationId, uri, fileName, sizeBytes) => {
+      const message: Message = { ...base(conversationId, 'document'), fileName, fileSize: formatBytes(sizeBytes), mediaUrl: uri };
+      push(conversationId, message);
+      const peerUsername = realDirectPeer(conversationId);
+      if (peerUsername) void sendDocumentReal(conversationId, peerUsername, message.id, uri, fileName);
+      else advance(conversationId, message.id);
+    },
     sendSticker: (conversationId, stickerId) => {
       const message: Message = { ...base(conversationId, 'sticker'), stickerId };
       push(conversationId, message);
