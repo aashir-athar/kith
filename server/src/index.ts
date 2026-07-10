@@ -9,8 +9,10 @@ import { Hono } from 'hono';
 
 import { env } from './env';
 import { startHeartbeat, wsRoute, wss } from './gateway';
+import { ensureBlobDir } from './lib/blobs';
 import { account } from './routes/account';
 import { auth } from './routes/auth';
+import { blobs } from './routes/blobs';
 import { blocksRoute } from './routes/blocks';
 import { conversationsRoute } from './routes/conversations';
 import { keys } from './routes/keys';
@@ -30,7 +32,10 @@ app.route('/users', usersRoute);
 app.route('/account', account);
 app.route('/push', push);
 app.route('/blocks', blocksRoute);
+app.route('/blobs', blobs);
 app.get('/ws', wsRoute);
+
+void ensureBlobDir();
 
 const server = serve({ fetch: app.fetch, port: env.PORT, websocket: { server: wss } }, (info) => {
   console.log(`[kith-server] listening on http://localhost:${info.port} (${env.NODE_ENV})`);

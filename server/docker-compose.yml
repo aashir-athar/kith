@@ -43,8 +43,12 @@ services:
       REDIS_URL: redis://redis:6379
       SESSION_SECRET: dev-only-change-me
       NODE_ENV: development
+      BLOB_DIR: /data/blobs
     ports:
       - '8787:8787'
+    volumes:
+      - kith_blobs:/data/blobs
 
 volumes:
   kith_pg:
+  kith_blobs:

@@ -11,6 +11,10 @@ const EnvSchema = z.object({
   SESSION_TTL_SECONDS: z.coerce.number().default(60 * 60 * 24 * 30),
   TICKET_TTL_SECONDS: z.coerce.number().default(30),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  // Relay-hosted encrypted media blobs live here (a mounted volume in production). Only ciphertext
+  // is written; the decryption key travels end-to-end and never reaches the server.
+  BLOB_DIR: z.string().default('./data/blobs'),
+  BLOB_MAX_BYTES: z.coerce.number().default(25 * 1024 * 1024),
 });
 
 export const env = EnvSchema.parse(process.env);

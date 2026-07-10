@@ -53,6 +53,20 @@ export const api = {
   registerPush: (authToken: string, pushToken: string, platform: string) =>
     post<{ ok: boolean }>('/push/register', { token: pushToken, platform }, authToken),
   unregisterPush: (authToken: string, pushToken: string) => post<{ ok: boolean }>('/push/unregister', { token: pushToken }, authToken),
+  uploadBlob: async (token: string, ciphertext: Uint8Array): Promise<{ id: string }> => {
+    const res = await fetch(BASE + '/blobs', {
+      method: 'POST',
+      headers: { 'content-type': 'application/octet-stream', authorization: `Bearer ${token}` },
+      body: ciphertext as unknown as BodyInit,
+    });
+    if (!res.ok) throw new Error(`POST /blobs -> ${res.status}`);
+    return (await res.json()) as { id: string };
+  },
+  downloadBlob: async (token: string, id: string): Promise<Uint8Array> => {
+    const res = await fetch(`${BASE}/blobs/${encodeURIComponent(id)}`, { headers: { authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error(`GET /blobs/${id} -> ${res.status}`);
+    return new Uint8Array(await res.arrayBuffer());
+  },
   block: (token: string, username: string) => post<{ ok: boolean }>('/blocks/block', { username }, token),
   unblock: (token: string, username: string) => post<{ ok: boolean }>('/blocks/unblock', { username }, token),
   listBlocked: (token: string) => get<{ blocked: UserPublic[] }>('/blocks', token),
