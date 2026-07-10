@@ -31,7 +31,14 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+
+# relay-hosted media blobs (local dev)
+server/data/
+
+# generated docs
+Kith-App-Overview.pdf
 
 # typescript
 *.tsbuildinfo
