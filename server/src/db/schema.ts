@@ -143,6 +143,31 @@ export const messages = pgTable(
   (t) => [uniqueIndex('messages_conv_seq_idx').on(t.conversationId, t.seq)],
 );
 
+// A community groups several channels. Each channel is backed by a group conversation, so channel
+// messaging reuses the group end-to-end path; the community + channel rows are just the directory.
+export const communities = pgTable('communities', {
+  id: uuid().defaultRandom().primaryKey(),
+  name: text().notNull(),
+  description: text(),
+  createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+});
+
+export const channels = pgTable(
+  'channels',
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    communityId: uuid()
+      .notNull()
+      .references(() => communities.id, { onDelete: 'cascade' }),
+    conversationId: uuid()
+      .notNull()
+      .references(() => conversations.id, { onDelete: 'cascade' }),
+    name: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('channels_community_idx').on(t.communityId)],
+);
+
 // One row per (blocker, blocked) pair. Enforced at delivery (the relay never forwards or pushes a
 // blocked sender's traffic) and at read (blocked senders are excluded from history and sync).
 export const blocks = pgTable(

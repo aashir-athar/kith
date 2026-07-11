@@ -131,6 +131,8 @@ export interface Channel {
   name: string;
   kind: ChannelKind;
   unreadCount: number;
+  // The group conversation that backs this channel (set in a live build); opening it opens that thread.
+  conversationId?: ID;
 }
 
 export interface Community {

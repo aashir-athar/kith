@@ -103,6 +103,30 @@ export type ConversationSummary = z.infer<typeof ConversationSummary>;
 export const ConversationListResponse = z.object({ conversations: z.array(ConversationSummary) });
 export type ConversationListResponse = z.infer<typeof ConversationListResponse>;
 
+/** A channel is backed by a group conversation; opening it opens that conversation's thread. */
+export const ChannelDTO = z.object({ id: z.string(), conversationId: z.string(), name: z.string() });
+export type ChannelDTO = z.infer<typeof ChannelDTO>;
+
+export const CommunityDTO = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  memberCount: z.number(),
+  channels: z.array(ChannelDTO),
+});
+export type CommunityDTO = z.infer<typeof CommunityDTO>;
+
+export const CommunityListResponse = z.object({ communities: z.array(CommunityDTO) });
+export type CommunityListResponse = z.infer<typeof CommunityListResponse>;
+
+export const CreateCommunityRequest = z.object({
+  name: z.string().min(2).max(60),
+  description: z.string().max(280).optional(),
+  usernames: z.array(z.string()).min(1),
+  channels: z.array(z.string().min(1).max(40)).max(20).optional(),
+});
+export type CreateCommunityRequest = z.infer<typeof CreateCommunityRequest>;
+
 export const DirectConversationResponse = z.object({
   id: z.string(),
   kind: z.string(),

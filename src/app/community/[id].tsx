@@ -19,9 +19,12 @@ import { SettingsRow } from '@/components/ui/SettingsRow';
 import { Surface } from '@/components/ui/Surface';
 import { Text } from '@/components/ui/Text';
 import { Toggle } from '@/components/ui/Toggle';
-import { users } from '@/lib/mockData';
+import { usersById, users } from '@/lib/mockData';
+import { BACKEND_ENABLED } from '@/net/config';
+import { useChatStore } from '@/stores/useChatStore';
 import { useCommunityStore } from '@/stores/useCommunityStore';
 import { useTheme } from '@/theme/ThemeProvider';
+import type { User } from '@/types/models';
 
 function formatCount(n: number): string {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -32,6 +35,7 @@ export default function CommunityScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const cid = typeof id === 'string' ? id : '';
   const community = useCommunityStore((s) => s.communities.find((c) => c.id === cid));
+  const chatConversations = useChatStore((s) => s.conversations);
   const scrollY = useSharedValue(0);
   const [muted, setMuted] = useState(false);
 
@@ -48,7 +52,12 @@ export default function CommunityScreen() {
   }
 
   const memberLabel = `${formatCount(community.memberCount)} ${community.memberCount === 1 ? 'member' : 'members'}`;
-  const members = users.slice(0, 8);
+  // Real members come from the channels' backing group conversation; the demo uses the seed roster.
+  const firstChannelConvId = community.channels[0]?.conversationId;
+  const channelConv = firstChannelConvId ? chatConversations.find((c) => c.id === firstChannelConvId) : undefined;
+  const members: readonly User[] = BACKEND_ENABLED
+    ? (channelConv?.participantIds.map((pid) => usersById[pid]).filter((u): u is User => !!u) ?? []).slice(0, 12)
+    : users.slice(0, 8);
   const divider = <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.colors.hairline, marginLeft: theme.space.xl }} />;
 
   return (
@@ -84,7 +93,7 @@ export default function CommunityScreen() {
                 router.push(
                   isAnnouncement
                     ? '/channel/' + channel.id
-                    : { pathname: '/conversation/[id]', params: { id: channel.id, channel: '1', members: String(community.memberCount) } },
+                    : { pathname: '/conversation/[id]', params: { id: channel.conversationId ?? channel.id, channel: '1', members: String(community.memberCount) } },
                 )
               }
               style={({ pressed }) => ({
@@ -134,12 +143,18 @@ export default function CommunityScreen() {
 
         <ListSectionLabel label="Community" />
         <Surface variant="flat" style={{ marginHorizontal: theme.space.xl, overflow: 'hidden' }}>
-          <SettingsRow
-            icon={UserPlus}
-            label="Invite people"
-            onPress={() => Alert.alert('Invite', 'Share an invite link. New members join encrypted; the server never sees the messages.')}
-          />
-          {divider}
+          {/* Invite links are not wired to the relay yet, so members are added at creation; the
+              invite affordance is shown only in the demo rather than as a control that does nothing. */}
+          {!BACKEND_ENABLED ? (
+            <>
+              <SettingsRow
+                icon={UserPlus}
+                label="Invite people"
+                onPress={() => Alert.alert('Invite', 'Share an invite link. New members join encrypted; the server never sees the messages.')}
+              />
+              {divider}
+            </>
+          ) : null}
           <SettingsRow
             icon={Bell}
             label="Mute community"

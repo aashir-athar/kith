@@ -1,7 +1,7 @@
 // REST client for the Kith relay. Base URL comes from EXPO_PUBLIC_API_URL (set per environment:
 // a LAN IP for a real device, 10.0.2.2 for the Android emulator, localhost for iOS simulator).
 
-import type { ConversationSummary, MessageDTO, PreKeyBundle, RegisterRequest, RotateKeysRequest, SessionResponse, UserPublic } from '@kith/shared';
+import type { CommunityDTO, ConversationSummary, MessageDTO, PreKeyBundle, RegisterRequest, RotateKeysRequest, SessionResponse, UserPublic } from '@kith/shared';
 
 const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8787';
 
@@ -46,6 +46,9 @@ export const api = {
   createDirect: (token: string, username: string) => post<DirectConversation>('/conversations/direct', { username }, token),
   createGroup: (token: string, name: string, usernames: string[]) =>
     post<{ id: string; kind: string; name: string; participants: UserPublic[] }>('/conversations/group', { name, usernames }, token),
+  listCommunities: (token: string) => get<{ communities: CommunityDTO[] }>('/communities', token),
+  createCommunity: (token: string, name: string, description: string, usernames: string[], channels?: string[]) =>
+    post<CommunityDTO>('/communities', { name, description, usernames, channels }, token),
   listConversations: (token: string) => get<{ conversations: ConversationSummary[] }>('/conversations', token),
   history: (token: string, conversationId: string, before?: number) =>
     get<{ messages: MessageDTO[] }>(`/conversations/${conversationId}/messages${before ? `?before=${before}` : ''}`, token),

@@ -11,6 +11,7 @@ import { BACKEND_ENABLED } from '@/net/config';
 import { messaging } from '@/net/messaging';
 import { addNotificationTapHandler, registerForPush } from '@/net/push';
 import { useChatStore } from '@/stores/useChatStore';
+import { useCommunityStore } from '@/stores/useCommunityStore';
 import { useSessionStore } from '@/stores/useSessionStore';
 
 async function topUpPreKeys(token: string): Promise<void> {
@@ -49,6 +50,7 @@ export function MessagingProvider({ children }: { children: ReactNode }) {
     if (!BACKEND_ENABLED || !token) return;
     const chat = useChatStore.getState();
     void chat.hydrateFromServer();
+    void useCommunityStore.getState().hydrateCommunities();
     void topUpPreKeys(token);
     void registerForPush(token);
     messaging.init(token, {
