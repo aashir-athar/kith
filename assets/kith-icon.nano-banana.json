@@ -1,31 +1,29 @@
 {
-  "title": "Kith app icon",
+  "title": "Kith app icon - Kin in a solid bubble",
   "model": "nano-banana-pro",
   "aspect_ratio": "1:1",
-  "subject": {
-    "concept": "A single rounded speech bubble that doubles as a private vault: a plump, friendly chat bubble with a small keyhole cut cleanly into its center, signalling an end-to-end encrypted messenger.",
-    "form": "One centered hero object, generous rounded corners, thick soft edges, slight forward tilt, filling about 78 percent of the frame with even margins.",
-    "details": "The keyhole is a simple circle over a tapered slot, recessed a few millimeters into the bubble face; the little tail of the speech bubble sits at the lower left."
+  "style": "flat 2D vector app icon, minimal, geometric, high contrast, crisp clean edges, modern private-messenger brand mark; NOT 3D, no gloss, no plastic, no bevel, no texture",
+  "composition": {
+    "tile": "one full-bleed rounded-square app-icon tile that fills the entire frame edge to edge, with no outer background and no padding around it",
+    "tile_fill": "solid ember coral #FF5A2C; at most a barely-perceptible top-to-bottom shade toward #E8481F, otherwise flat",
+    "bubble": "a single white #FAF7F3 speech bubble centered on the tile: a rounded-rectangle body with soft large corners and one short tail at its lower-left; the whole bubble sits within the central 82 percent of the tile so nothing clips on an icon mask",
+    "mark": "inside the white bubble, one coral #FF5A2C monogram: a stylized capital letter K made of a single vertical bar on the left plus two diagonal arms that meet the middle of the bar, where each arm ENDS IN A SMALL FILLED ROUND DOT instead of a plain point; even stroke weight, rounded stroke ends, the mark optically centered in the bubble and clearly readable as a K"
   },
-  "style": {
-    "look": "3D Pixar-style render, high-end mobile app icon, playful but premium and trustworthy",
-    "surface": "smooth matte body with a faint satin sheen, soft rounded bevels, gentle ambient occlusion inside the keyhole recess only",
-    "finish": "clean, tactile, no text, no letters, no numerals"
+  "palette": {
+    "tile": "#FF5A2C",
+    "bubble": "#FAF7F3",
+    "mark": "#FF5A2C"
   },
-  "materials": {
-    "bubble_body": "warm ember coral, base #FF5A2C grading to a slightly deeper #E8481F at the lower edge",
-    "keyhole": "recessed charcoal #14110F interior with a thin brushed-metal ring in warm off-white #FAF7F3",
-    "accent": "one subtle cool rim of deep violet #5A2CFF kept minimal, no more than a thin edge highlight"
-  },
-  "lighting": "soft top-left key light with broad fill, gentle self-shadow contained within the object silhouette, even and clean, no dramatic contrast",
-  "camera": "straight-on product shot, slight three-quarter tilt, 50mm feel, centered composition",
-  "background": {
-    "color": "flat chroma key green #00FF00",
-    "notes": "solid uniform green fill only, absolutely no gradient, no vignette, no floor, no reflection, no cast shadow onto the background, so the subject can be cut out to a clean transparent PNG"
-  },
-  "negative_prompt": "no external glow, no bloom, no lens flare, no particles, no sparkles, no drop shadow on the background, no ground plane, no reflection, no text, no watermark, no border, no photorealistic skin, no clutter, no gradient background",
+  "must": [
+    "flat solid fills only",
+    "the K-with-two-dots mark must clearly read as the letter K, not scribbles",
+    "the bubble tail points down-left and stays fully inside the frame",
+    "legible and clean at 44 by 44 pixels"
+  ],
+  "negative_prompt": "no 3D, no glossy plastic, no bevel, no emboss, no inner or drop shadow, no outer glow, no bloom, no lens flare, no gradient background, no photorealism, no spelled-out words or extra letters, no numerals, no watermark, no border frame, no keyhole, no padlock, no clutter, no particles",
   "output": {
-    "usage": "Source render for the iOS/Android app icon; background-remove the green to transparent, then export the standard icon and adaptive-icon sizes.",
-    "safe_area": "keep the keyhole and bubble tail within the central 80 percent so nothing is clipped by the adaptive-icon mask"
+    "usage": "Source render for the iOS/Android app icon at 1024x1024. The coral tile is full-bleed and opaque, so iOS needs no background removal.",
+    "android_adaptive": "Use the white bubble plus coral mark as the foreground layer over a solid #FF5A2C background layer.",
+    "note": "The exact mark also exists as clean vector (see the Kith icon board); the vector is the reliable source if a generated render distorts the K-with-dots geometry."
   }
 }
