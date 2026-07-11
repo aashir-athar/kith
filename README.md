@@ -44,8 +44,10 @@ This repository is the full stack: the Expo app, a shared cryptography package t
 
 | Area | What you get |
 | --- | --- |
-| **Default end-to-end encryption** | Every direct message is sealed on-device with XChaCha20-Poly1305. The relay forwards opaque envelopes it cannot read. |
+| **Default end-to-end encryption** | Every message, 1:1 or group, is sealed on-device with XChaCha20-Poly1305. The relay forwards opaque envelopes it cannot read. |
 | **Real key agreement** | X25519 Diffie-Hellman with an X3DH-lite prekey handshake, so the first message is asynchronous and still authenticated. |
+| **Encrypted groups and communities** | A group message is encrypted once with a fresh key that is sealed to each member individually; a community is a directory of encrypted group channels. |
+| **Encrypted media** | Images, voice, documents, and stickers are encrypted with a per-file key and uploaded as ciphertext; the key travels sealed in the message. |
 | **Passwordless identity** | No phone number, no password. You prove control of your Ed25519 identity key by signing a server challenge. |
 | **Seed-phrase recovery** | Your identity is derived from a BIP39 phrase. Write it down once, restore on any device. The server holds no recovery secret. |
 | **Encrypted local history** | Messages persist on-device as ciphertext, sealed with a data key that lives only in the secure enclave. Nothing readable touches disk. |
@@ -57,24 +59,28 @@ This repository is the full stack: the Expo app, a shared cryptography package t
 
 ## What is shipped vs planned
 
-Kith ships a complete, real one-to-one encrypted messenger. It does not pretend to be more than it is.
+Kith ships a complete, real encrypted messenger. It does not pretend to be more than it is: every surface below is wired to the encrypted transport, and anything not yet built is honestly absent in a live build rather than faked.
 
 **Shipped and wired to the real encrypted transport**
 
-- One-to-one text messaging, end-to-end encrypted
-- Send, edit, and delete-for-everyone, propagated over the relay
+- One-to-one and group messaging, end-to-end encrypted
+- Communities with channels (each channel is an encrypted group)
+- Media over the transport: images, voice notes, documents, stickers, location, contacts, polls (only sealed blob refs reach the relay)
+- Reactions, message pins, forward, edit, and delete-for-everyone
+- Disappearing messages (a shared per-conversation timer)
 - Delivery and read receipts, typing indicators, presence
+- Remote push that reaches a force-quit app (content-free, so no message text leaves the device)
+- Server-enforced block, mute, and real safety-number verification
 - History hydration, gap-detectable sync, and encrypted local persistence
-- Passwordless registration and login, and cross-device restore from a recovery phrase
-- Real account deletion
+- Passwordless registration and login, seed-phrase recovery, QR-code add, real account deletion
 
-**Designed and previewed in the offline demo, not yet wired to the relay**
+**On the roadmap (not yet built)**
 
-- Media, voice notes, and stickers
+- Double Ratchet for forward secrecy and post-compromise security
 - Voice and video calls
-- Communities and channels
+- Multi-device sync for a single identity
 
-In a live build (when the app points at a relay), the demo-only surfaces are hidden rather than shown as working controls. See [Configuration](#configuration).
+In a live build (when the app points at a relay), any not-yet-built surface is hidden rather than shown as a working control. See [Configuration](#configuration).
 
 ---
 
@@ -107,6 +113,7 @@ sequenceDiagram
 | Identity signatures and auth challenge | Ed25519 | `@noble/curves` |
 | Key agreement | X25519 ECDH | `@noble/curves` |
 | Authenticated encryption | XChaCha20-Poly1305 | `@noble/ciphers` |
+| Group and media content | XChaCha20-Poly1305 with a per-message / per-file key, that key sealed via X3DH | `@noble/ciphers` + `@noble/curves` |
 | Key derivation | HKDF-SHA256 | `@noble/hashes` |
 | Recovery phrase to seed | BIP39 | `@scure/bip39` |
 
@@ -242,7 +249,7 @@ Without `EXPO_PUBLIC_API_URL`, the app runs a fully offline demo (useful for des
 The crypto and persistence layers are covered by real integration tests that run the shared code against an in-process Postgres.
 
 ```bash
-cd server && npm test        # crypto vectors + PGlite integration (16 tests)
+cd server && npm test        # crypto vectors + PGlite integration (24 tests)
 npm run typecheck            # app: tsc --noEmit (strict)
 cd server && npm run typecheck
 ```
@@ -251,11 +258,10 @@ cd server && npm run typecheck
 
 ## Roadmap
 
-- Double Ratchet for forward secrecy and post-compromise security
-- Encrypted media, voice notes, and file transfer over the transport
-- Encrypted voice and video calls
-- Communities and channels on the relay
+- Double Ratchet for forward secrecy and post-compromise security (needs a cryptography review)
+- Encrypted voice and video calls (needs a TURN server and on-device verification)
 - Multi-device sync for a single identity
+- Invite links and public discovery for communities
 - Reproducible builds and a third-party cryptography review
 
 ---
@@ -287,9 +293,9 @@ Your account is a keypair. Removing the phone number removes a permanent identif
 </details>
 
 <details>
-<summary><b>Are calls and media encrypted too?</b></summary>
+<summary><b>Is media encrypted too? What about groups?</b></summary>
 <br />
-Those surfaces are designed but not yet wired to the encrypted transport, so a live build hides them rather than faking them. Only what actually works is shown. Text messaging is fully end-to-end encrypted today.
+Yes. Images, voice notes, documents, and stickers are encrypted end-to-end: the file is encrypted on your device with a per-file key, only the ciphertext is uploaded, and the key travels sealed inside the message, so the relay stores opaque bytes it cannot read. Group and community messages are encrypted too: each message is encrypted once with a fresh key that is then sealed to every member individually. Calls are the one messaging surface not yet built, and a live build hides them rather than faking them.
 </details>
 
 <details>
