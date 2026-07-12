@@ -2,14 +2,15 @@
 
 # Kith
 
-### The private-by-default messenger. End-to-end encrypted before your message ever leaves the phone.
+### The private-by-default messenger. End-to-end encrypted before your message ever leaves your device. No phone number.
 
-Real-but-lean X3DH key agreement, XChaCha20-Poly1305 sealed messages, a passwordless key-based login, and a twelve-word recovery phrase that only you hold. Built with Expo SDK 57 and a Hono relay that never sees your plaintext.
+Open-source, end-to-end-encrypted messaging for iOS, Android, and the web. Real-but-lean X3DH key agreement, XChaCha20-Poly1305 sealed messages, a passwordless key-based login, and a twelve-word recovery phrase that only you hold. Built with Expo SDK 57, a Next.js web client, and a Hono relay that never sees your plaintext.
 
 <br />
 
 [![Expo SDK 57](https://img.shields.io/badge/Expo_SDK-57-000020?style=for-the-badge&logo=expo&logoColor=white)](https://docs.expo.dev/versions/v57.0.0/)
 [![React Native 0.86](https://img.shields.io/badge/React_Native-0.86-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactnative.dev/)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Hono](https://img.shields.io/badge/Hono-relay-E36002?style=for-the-badge&logo=hono&logoColor=white)](https://hono.dev/)
 [![License MIT](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
@@ -27,6 +28,36 @@ Real-but-lean X3DH key agreement, XChaCha20-Poly1305 sealed messages, a password
 <a href="#faq"><b>FAQ</b></a>
 
 </div>
+
+---
+
+## What is Kith?
+
+**Kith is an open-source, end-to-end-encrypted messenger for iOS, Android, and the web that works without a phone number.** Your account is a cryptographic keypair derived from a twelve-word recovery phrase, every message is sealed on your device with XChaCha20-Poly1305 before it is sent, and the relay that routes it only ever stores ciphertext. It is a privacy-first alternative to WhatsApp, Telegram, and Signal for people who do not want their identity tied to a SIM card, and who want to read the code that protects them.
+
+- **Encrypted by default,** not as an opt-in mode you have to remember to turn on.
+- **No phone number and no password.** Identity is an Ed25519 keypair; you log in by signing a challenge.
+- **Same crypto on every surface.** The phone, the browser, and the server tests run one shared implementation.
+- **Honest about its limits.** Version one gives you confidentiality and authentication, not yet forward secrecy, and the app never claims otherwise.
+
+---
+
+## How Kith compares
+
+An honest side-by-side. Kith is version one and is behind the mature apps on forward secrecy; that row is filled in truthfully rather than hidden.
+
+| Capability | Kith | Signal | WhatsApp | Telegram |
+| --- | :---: | :---: | :---: | :---: |
+| End-to-end encrypted by default | Yes | Yes | Yes | No (opt-in Secret Chats) |
+| Works without a phone number | Yes | No | No | No |
+| Account is a cryptographic key, not a SIM | Yes | No | No | No |
+| Open source, client and server | Yes | Yes | No | Client only |
+| Group chats end-to-end encrypted | Yes | Yes | Yes | No |
+| Web client | Yes | Desktop, links to phone | Yes | Yes |
+| Forward secrecy | Roadmap | Yes | Yes | Secret Chats only |
+| No server-side account recovery to subpoena | Yes | Partial | No | No |
+
+The point of Kith is not to out-feature Signal on day one. It is to remove the phone number, keep the whole stack readable, and never fake a guarantee.
 
 ---
 
@@ -53,6 +84,7 @@ This repository is the full stack: the Expo app, a shared cryptography package t
 | **Encrypted local history** | Messages persist on-device as ciphertext, sealed with a data key that lives only in the secure enclave. Nothing readable touches disk. |
 | **Right to erasure** | Delete your account for real: the relay drops your data and the device wipes every key. |
 | **Native feel** | Expo Router with real native tabs, FlashList threads, dark and light theming, and a splash handoff with no light-mode flash. |
+| **Web client** | A Next.js browser client that mirrors the app design and runs the same crypto in the tab: seal on your device, open on your phone, and back. |
 | **Zero-knowledge relay** | Postgres stores only ciphertext plus public key material. Redis carries single-use realtime tickets and per-user fan-out. |
 
 ---
@@ -188,6 +220,7 @@ kith/
   shared/             @kith/shared: X3DH-lite crypto + Zod DTOs (self-contained)
   server/             Hono relay: routes, ws gateway, Drizzle schema, migrations
   server/docker-compose.yml   Postgres 16 + Redis 7 + relay
+  web/                Next.js web client: same @kith/shared crypto, browser keystore
 ```
 
 ---
@@ -197,6 +230,7 @@ kith/
 | Layer | Choices |
 | --- | --- |
 | **App** | Expo SDK 57, React Native 0.86, React 19, Expo Router, native tabs, TypeScript strict (`noUncheckedIndexedAccess`, `noImplicitOverride`) |
+| **Web** | Next.js 16 (App Router), React 19, TypeScript 7, Zustand, Geist, WebCrypto randomness, localStorage keystore (ciphertext only) |
 | **State and data** | Zustand, TanStack Query, FlashList, AsyncStorage (ciphertext only), expo-secure-store (secrets) |
 | **Crypto** | `@noble/curves`, `@noble/ciphers`, `@noble/hashes`, `@scure/bip39` |
 | **Relay** | Hono, `@hono/node-server`, `ws` |
@@ -229,6 +263,17 @@ npx expo start
 ```
 
 Without `EXPO_PUBLIC_API_URL`, the app runs a fully offline demo (useful for design work) and the encrypted backend is compiled out. Full instructions, including running the relay without Docker, migrations, and EAS builds, live in [zero-to-deploy.md](zero-to-deploy.md).
+
+**Run the web client** (same relay, same encryption, in the browser):
+
+```bash
+cd web
+npm install
+echo "NEXT_PUBLIC_API_URL=http://localhost:8787" > .env.local
+npm run dev            # http://localhost:3000
+```
+
+A message sent from the web tab opens on the phone and back, because both run the same `@kith/shared` crypto. On the web your keys live in the browser, which is less protected than a phone's secure enclave; the app says so and points you to a device you trust.
 
 ---
 
@@ -296,6 +341,30 @@ Your account is a keypair. Removing the phone number removes a permanent identif
 <summary><b>Is media encrypted too? What about groups?</b></summary>
 <br />
 Yes. Images, voice notes, documents, and stickers are encrypted end-to-end: the file is encrypted on your device with a per-file key, only the ciphertext is uploaded, and the key travels sealed inside the message, so the relay stores opaque bytes it cannot read. Group and community messages are encrypted too: each message is encrypted once with a fresh key that is then sealed to every member individually. Calls are the one messaging surface not yet built, and a live build hides them rather than faking them.
+</details>
+
+<details>
+<summary><b>Is Kith open source?</b></summary>
+<br />
+Yes. The whole stack is in this repository under the MIT license: the app, the Next.js web client, the shared cryptography package, and the Hono relay. You can read exactly how your messages are sealed and how the server is prevented from reading them, then build and run it yourself.
+</details>
+
+<details>
+<summary><b>Can I use Kith on the web or on a desktop?</b></summary>
+<br />
+Yes. The Next.js web client in <code>web/</code> connects to the same relay and runs the same encryption in the browser, so a message sent from a tab opens on your phone and back. On the web your keys live in the browser rather than a hardware secure enclave, which is a weaker place to keep them; Kith says so plainly and recommends the mobile app on a device you trust for anything sensitive.
+</details>
+
+<details>
+<summary><b>How is Kith different from Signal, WhatsApp, and Telegram?</b></summary>
+<br />
+Kith drops the phone number entirely: your account is a cryptographic keypair derived from a recovery phrase, not a SIM. Like Signal it is open source and encrypted by default, and unlike Telegram that default covers group chats too, not just an opt-in mode. Where Kith is honestly behind the mature apps is forward secrecy, which is on the roadmap rather than shipped. See the <a href="#how-kith-compares">comparison table</a> for the full side-by-side.
+</details>
+
+<details>
+<summary><b>Which messenger works without a phone number?</b></summary>
+<br />
+Kith. Most encrypted messengers, including Signal and WhatsApp, still require a phone number to register, which ties the account to a SIM and a telecom. Kith identifies you by an Ed25519 keypair instead, so you can create and restore an account with only a twelve-word phrase.
 </details>
 
 <details>

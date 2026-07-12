@@ -8,6 +8,7 @@ const path = require('path');
 const projectRoot = __dirname;
 const sharedRoot = path.resolve(projectRoot, 'shared');
 const serverRoot = path.resolve(projectRoot, 'server');
+const webRoot = path.resolve(projectRoot, 'web');
 
 const config = getDefaultConfig(projectRoot);
 
@@ -20,10 +21,11 @@ config.resolver.extraNodeModules = {
   '@kith/shared': sharedRoot,
 };
 
-// Keep Metro from crawling the server or shared's node_modules.
+// Keep Metro from crawling the server, the Next.js web client, or shared's node_modules.
 const escape = (p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 config.resolver.blockList = [
   new RegExp(escape(serverRoot) + '.*'),
+  new RegExp(escape(webRoot) + '.*'),
   new RegExp(escape(path.join(sharedRoot, 'node_modules')) + '.*'),
 ];
 
