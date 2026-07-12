@@ -44,6 +44,8 @@ services:
       SESSION_SECRET: dev-only-change-me
       NODE_ENV: development
       BLOB_DIR: /data/blobs
+      # Origins allowed to call the relay from a browser (the web client). Comma-separated.
+      CORS_ORIGIN: http://localhost:3000
     ports:
       - '8787:8787'
     volumes:

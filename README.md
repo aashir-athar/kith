@@ -130,10 +130,12 @@ sequenceDiagram
     B->>R: Register identity + signed prekey + one-time prekeys (public only)
     A->>R: Fetch Bob's prekey bundle
     R-->>A: ikPub, ikDhPub, signed prekey, one one-time prekey
-    Note over A: Verify signed-prekey signature<br/>DH1..DH4 then HKDF-SHA256 to session key
+    Note over A: Verify signed-prekey signature
+    Note over A: DH1 to DH4 then HKDF-SHA256 to session key
     A->>R: Sealed envelope (XChaCha20-Poly1305 ciphertext + header)
     R-->>B: Forward opaque envelope
-    Note over B: Reconstruct session key from stored secrets<br/>Open ciphertext, burn the one-time prekey
+    Note over B: Reconstruct session key from stored secrets
+    Note over B: Open ciphertext, burn the one-time prekey
 ```
 
 **What the relay can see:** who talks to whom, timing, message sizes, and public keys. **What it cannot see:** message contents, and any secret key.
@@ -180,27 +182,35 @@ A small monorepo with one rule: the cryptography is written once and shared, so 
 
 ```mermaid
 flowchart TD
-    subgraph Client [kith  -  Expo app]
-        UI[Expo Router screens + native tabs]
-        ST[Zustand stores]
-        CR[crypto: keystore, e2e, mnemonic]
-        NET[api client + reconnecting socket]
+    subgraph Client ["kith: Expo app (iOS, Android)"]
+        UI["Expo Router screens + native tabs"]
+        ST["Zustand stores"]
+        CR["crypto: keystore, e2e, mnemonic"]
+        NET["api client + reconnecting socket"]
     end
-    subgraph Shared ["@kith/shared  -  isomorphic TS"]
-        X3[X3DH-lite: seal, open, identityFromSeed]
-        DTO[Zod DTOs + wire types]
+    subgraph Web ["kith/web: Next.js client"]
+        WUI["App Router screens"]
+        WCR["crypto: e2e, keystore, mnemonic"]
     end
-    subgraph Server [kith/server  -  Hono relay]
-        RT[REST: auth, keys, conversations, account]
-        WS[WebSocket gateway]
-        DB[(Postgres  -  ciphertext + public keys)]
-        RD[(Redis  -  tickets + fan-out)]
+    subgraph Shared ["@kith/shared: isomorphic TS"]
+        X3["X3DH-lite: seal, open, identityFromSeed"]
+        DTO["Zod DTOs + wire types"]
+    end
+    subgraph Server ["kith/server: Hono relay"]
+        RT["REST: auth, keys, conversations, account"]
+        WS["WebSocket gateway"]
+        DB[("Postgres: ciphertext + public keys")]
+        RD[("Redis: tickets + fan-out")]
     end
 
     UI --> ST --> NET
+    WUI --> WCR
     CR --> X3
+    WCR --> X3
     NET -->|HTTPS| RT
     NET -->|WSS| WS
+    WUI -->|HTTPS| RT
+    WUI -->|WSS| WS
     RT --> X3
     RT --> DB
     WS --> RD
@@ -271,6 +281,14 @@ cd web
 npm install
 echo "NEXT_PUBLIC_API_URL=http://localhost:8787" > .env.local
 npm run dev            # http://localhost:3000
+```
+
+On Windows, one command brings up the relay and the web client together, waits for the relay to be healthy, and stops it again when you exit:
+
+```powershell
+./run-all.ps1                 # relay + web client
+./run-all.ps1 -FreshBackend   # wipe the local database first
+./run-all.ps1 -WebOnly        # web only, relay already running
 ```
 
 A message sent from the web tab opens on the phone and back, because both run the same `@kith/shared` crypto. On the web your keys live in the browser, which is less protected than a phone's secure enclave; the app says so and points you to a device you trust.
