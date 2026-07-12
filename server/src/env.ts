@@ -15,6 +15,17 @@ const EnvSchema = z.object({
   // is written; the decryption key travels end-to-end and never reaches the server.
   BLOB_DIR: z.string().default('./data/blobs'),
   BLOB_MAX_BYTES: z.coerce.number().default(25 * 1024 * 1024),
+  // Browser origins allowed to call the relay (comma-separated). Only the web client needs this;
+  // the native apps make requests without an enforced origin. Defaults to the web dev server.
+  // A bare '*' is passed through as a wildcard; anything else is an explicit allowlist.
+  CORS_ORIGIN: z
+    .string()
+    .default('http://localhost:3000')
+    .transform((s) => {
+      const trimmed = s.trim();
+      if (trimmed === '*') return '*';
+      return trimmed.split(',').map((o) => o.trim()).filter(Boolean);
+    }),
 });
 
 export const env = EnvSchema.parse(process.env);

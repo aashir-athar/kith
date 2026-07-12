@@ -6,6 +6,7 @@ import 'dotenv/config';
 
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 
 import { env } from './env';
 import { startHeartbeat, wsRoute, wss } from './gateway';
@@ -22,6 +23,24 @@ import { rt } from './routes/rt';
 import { usersRoute } from './routes/users';
 
 const app = new Hono();
+
+if (env.NODE_ENV === 'production' && process.env.CORS_ORIGIN == null) {
+  console.warn(
+    '[kith-server] CORS_ORIGIN is unset in production; only http://localhost:3000 is allowed, so browser clients from your real web origin will be blocked. Set CORS_ORIGIN to the web app origin.',
+  );
+}
+
+// The browser web client is a different origin from the relay, so it needs CORS on the REST routes.
+// Bearer tokens travel in the Authorization header (no cookies), so no credentials mode is required.
+app.use(
+  '*',
+  cors({
+    origin: env.CORS_ORIGIN,
+    allowHeaders: ['Content-Type', 'Authorization'],
+    allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    maxAge: 86400,
+  }),
+);
 
 app.get('/health', (c) => c.json({ ok: true, service: 'kith-server', ts: Date.now() }));
 
