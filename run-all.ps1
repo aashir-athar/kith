@@ -65,6 +65,17 @@ function Need($cmd, $hint) {
     if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) { Die "'$cmd' not found. $hint" }
 }
 
+# In PowerShell, "npm" often resolves to npm.ps1, whose wrapper mangles "-- --port" passthrough args
+# (npm then sees a bogus subcommand). Prefer the npm.cmd batch shim, which forwards args correctly.
+function Resolve-Npm {
+    $src = (Get-Command npm -ErrorAction SilentlyContinue).Source
+    if ($src -and $src.ToLower().EndsWith('.ps1')) {
+        $cmd = [System.IO.Path]::ChangeExtension($src, '.cmd')
+        if (Test-Path $cmd) { return $cmd }
+    }
+    return 'npm'
+}
+
 function Test-Health($url, $timeoutSec) {
     $deadline = (Get-Date).AddSeconds($timeoutSec)
     while ((Get-Date) -lt $deadline) {
@@ -83,7 +94,7 @@ function Test-Health($url, $timeoutSec) {
 function Invoke-Npm($dir, $label) {
     Push-Location $dir
     try {
-        & npm install
+        & $script:npm install
         if ($LASTEXITCODE -ne 0) { Die "npm install failed in $label." }
     } finally {
         Pop-Location
@@ -94,6 +105,7 @@ function Invoke-Npm($dir, $label) {
 Need 'node' 'Install Node 20 or newer from https://nodejs.org'
 Need 'npm'  'npm ships with Node; install Node 20 or newer.'
 
+$script:npm = Resolve-Npm
 $healthUrl = ($ApiUrl.TrimEnd('/')) + '/health'
 $backendStarted = $false
 
@@ -191,7 +203,7 @@ Write-Host ''
 
 Push-Location $webDir
 try {
-    & npm run dev -- --port $Port
+    & $script:npm run dev -- --port $Port
 } finally {
     Pop-Location
     if ($backendStarted -and -not $KeepBackend) {
