@@ -1,0 +1,40 @@
+// REST client for the Kith relay, same shape as the mobile client. Base URL from
+// NEXT_PUBLIC_API_URL (the relay origin); the browser talks to the same server as the phone.
+
+import type { ConversationSummary, MessageDTO, PreKeyBundle, RegisterRequest, SessionResponse, UserPublic } from '@kith/shared';
+
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
+
+async function post<T>(path: string, body: unknown, token?: string): Promise<T> {
+  const res = await fetch(BASE + path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`POST ${path} -> ${res.status}`);
+  return (await res.json()) as T;
+}
+
+async function get<T>(path: string, token: string): Promise<T> {
+  const res = await fetch(BASE + path, { headers: { authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`GET ${path} -> ${res.status}`);
+  return (await res.json()) as T;
+}
+
+export const api = {
+  base: BASE,
+  wsUrl: (ticket: string) => `${BASE.replace(/^http/, 'ws')}/ws?ticket=${encodeURIComponent(ticket)}`,
+  register: (body: RegisterRequest) => post<SessionResponse>('/auth/register', body),
+  challenge: (username: string) => post<{ challenge: string; expiresAt: number }>('/auth/challenge', { username }),
+  verify: (body: { username: string; challenge: string; signature: string }) => post<SessionResponse>('/auth/verify', body),
+  bundle: (token: string, username: string) => get<PreKeyBundle>(`/keys/bundle/${encodeURIComponent(username)}`, token),
+  replenish: (token: string, oneTimePreKeys: { id: string; pub: string }[]) => post<{ ok: boolean }>('/keys/replenish', { oneTimePreKeys }, token),
+  rotateKeys: (token: string, body: { spk: { id: string; pub: string; sig: string }; oneTimePreKeys: { id: string; pub: string }[] }) => post<{ ok: boolean }>('/keys/rotate', body, token),
+  ticket: (token: string) => post<{ ticket: string; expiresAt: number }>('/rt/ticket', {}, token),
+  createDirect: (token: string, username: string) => post<{ id: string; kind: string; participants: string[] }>('/conversations/direct', { username }, token),
+  listConversations: (token: string) => get<{ conversations: ConversationSummary[] }>('/conversations', token),
+  history: (token: string, conversationId: string, before?: number) =>
+    get<{ messages: MessageDTO[] }>(`/conversations/${conversationId}/messages${before ? `?before=${before}` : ''}`, token),
+  user: (token: string, id: string) => get<UserPublic>(`/users/${encodeURIComponent(id)}`, token),
+  lookupUser: (token: string, username: string) => get<UserPublic>(`/users/lookup/${encodeURIComponent(username)}`, token),
+};
